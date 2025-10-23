@@ -1,0 +1,110 @@
+{
+  "llmProvider": "Gemini",
+  "conversions": [
+    {
+      "original": "ActorController",
+      "type": "Controller",
+      "outputPath": "./output/converted/ActorController.js"
+    },
+    {
+      "original": "CategoryController",
+      "type": "Controller",
+      "outputPath": "./output/converted/CategoryController.js"
+    },
+    {
+      "original": "CustomerController",
+      "type": "Controller",
+      "outputPath": "./output/converted/CustomerController.js"
+    },
+    {
+      "original": "FilmController",
+      "type": "Controller",
+      "outputPath": "./output/converted/FilmController.js"
+    },
+    {
+      "original": "MainController",
+      "type": "Controller",
+      "outputPath": "./output/converted/MainController.js"
+    },
+    {
+      "original": "StaffController",
+      "type": "Controller",
+      "outputPath": "./output/converted/StaffController.js"
+    },
+    {
+      "original": "ActorRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/ActorRepository.js"
+    },
+    {
+      "original": "CategoryRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/CategoryRepository.js"
+    },
+    {
+      "original": "CustomerRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/CustomerRepository.js"
+    },
+    {
+      "original": "FilmRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/FilmRepository.js"
+    },
+    {
+      "original": "InventoryRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/InventoryRepository.js"
+    },
+    {
+      "original": "RentalRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/RentalRepository.js"
+    },
+    {
+      "original": "StaffRepository",
+      "type": "DAO",
+      "outputPath": "./output/converted/StaffRepository.js"
+    },
+    {
+      "original": "UserDetailsServiceImpl",
+      "type": "Service",
+      "outputPath": "./output/converted/UserDetailsServiceImpl.js"
+    },
+    {
+      "original": "ActorService",
+      "type": "Service",
+      "outputPath": "./output/converted/ActorService.js"
+    },
+    {
+      "original": "CategoryService",
+      "type": "Service",
+      "outputPath": "./output/converted/CategoryService.js"
+    },
+    {
+      "original": "CustomerService",
+      "type": "Service",
+      "outputPath": "./output/converted/CustomerService.js"
+    },
+    {
+      "original": "FilmService",
+      "type": "Service",
+      "outputPath": "./output/converted/FilmService.js"
+    },
+    {
+      "original": "InventoryService",
+      "type": "Service",
+      "outputPath": "./output/converted/InventoryService.js"
+    },
+    {
+      "original": "RentalService",
+      "type": "Service",
+      "outputPath": "./output/converted/RentalService.js"
+    },
+    {
+      "original": "StaffService",
+      "type": "Service",
+      "outputPath": "./output/converted/StaffService.js"
+    }
+  ]
+}
