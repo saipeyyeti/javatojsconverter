@@ -37,7 +37,7 @@ The workflow is as follows:
     # Or, your API key for Anthropic Claude (used as a fallback)
     # ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
 
-    # Path to the Java codebase to be analyzed (optional, defaults to ./sakila-java)
+    # Path to the Java codebase to be analyzed (optional, defaults to ./java-dir)
     CODEBASE_PATH="./sakila-java"
     ```
 
