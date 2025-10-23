@@ -1,4 +1,4 @@
-# Langchain based Java to Node.js Codebase Analyzer and Converter
+# Langchain & LLM based Java to Node.js Codebase Analyzer and Converter
 
 ## 1. Overview
 
