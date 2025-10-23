@@ -38,7 +38,7 @@ The workflow is as follows:
     # ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
 
     # Path to the Java codebase to be analyzed (optional, defaults to ./java-dir)
-    CODEBASE_PATH="./sakila-java"
+    CODEBASE_PATH="./java-dir"
     ```
 
 ### Execution
