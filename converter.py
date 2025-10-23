@@ -6,16 +6,18 @@ Supports Google Gemini (primary) and Anthropic Claude (fallback)
 
 import os
 import json
+import argparse
 from pathlib import Path
 from typing import List, Dict, Any
 from dotenv import load_dotenv
 
-# LangChain imports
+# LangChain imports for text splitting, prompts, and output parsing
 from langchain_text_splitters import RecursiveCharacterTextSplitter, Language
 from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 try:
+    # Caching is used to avoid redundant API calls for the same content
     from langchain_community.cache import InMemoryCache
 except ImportError:
     print("⚠️ langchain-community not installed. Caching will be disabled.")
@@ -24,12 +26,13 @@ except ImportError:
 from langchain_core.globals import set_llm_cache
 from langchain_google_genai import ChatGoogleGenerativeAI
 
-# Pydantic for structured output
+# Pydantic is used for defining structured data models and validation
 from pydantic import BaseModel, Field
 
+# Load environment variables from a .env file
 load_dotenv()
 
-# Enable caching to save API costs
+# Enable in-memory caching for LLM responses to save on API costs
 if InMemoryCache:
     set_llm_cache(InMemoryCache())
 
@@ -40,19 +43,29 @@ if InMemoryCache:
 
 def initialize_llm(temperature: float = 0.3, max_tokens: int = 4000):
     """
-    Initialize LLM with Google Gemini as primary and Anthropic as fallback
-    Returns: (llm_instance, provider_name)
+    Initialize the Large Language Model (LLM) with a preference for Google Gemini,
+    falling back to Anthropic's Claude if Gemini is not available.
+
+    Args:
+        temperature (float): Controls the randomness of the LLM's output.
+        max_tokens (int): The maximum number of tokens to generate.
+
+    Returns:
+        A tuple containing the LLM instance and the provider's name (e.g., "Gemini").
+
+    Raises:
+        ValueError: If no valid API key is found for either Gemini or Claude.
     """
     gemini_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
     anthropic_key = os.getenv('ANTHROPIC_API_KEY')
     
-    # Try Google Gemini first
+    # Attempt to initialize Google Gemini first
     if gemini_key:
         try:
             from langchain_google_genai import ChatGoogleGenerativeAI
             print("✅ Using Google Gemini")
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash",
+                model="gemini-1.5-flash",
                 google_api_key=gemini_key,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -65,7 +78,7 @@ def initialize_llm(temperature: float = 0.3, max_tokens: int = 4000):
             print(f"⚠️  Gemini initialization failed: {e}")
             print("   Falling back to Anthropic...")
     
-    # Fallback to Anthropic Claude
+    # Fallback to Anthropic Claude if Gemini is unavailable
     if anthropic_key:
         try:
             from langchain_anthropic import ChatAnthropic
@@ -83,7 +96,7 @@ def initialize_llm(temperature: float = 0.3, max_tokens: int = 4000):
         except Exception as e:
             print(f"❌ Anthropic initialization failed: {e}")
     
-    # No valid API key found
+    # If no LLM can be initialized, raise an error
     raise ValueError(
         "No valid API key found!\n"
         "Please set either:\n"
@@ -98,14 +111,20 @@ def initialize_llm(temperature: float = 0.3, max_tokens: int = 4000):
 # ============================================================================
 
 class Method(BaseModel):
-    """Method information with validation"""
+    """
+    A Pydantic model to represent a single method within a Java class,
+    including validation for the complexity field.
+    """
     name: str = Field(description="Method name")
     signature: str = Field(description="Complete method signature")
     description: str = Field(description="What the method does")
     complexity: str = Field(description="Low, Medium, or High", pattern="^(Low|Medium|High)$")
 
 class Module(BaseModel):
-    """Module/Class information with validation"""
+    """
+    A Pydantic model for a Java module or class, containing a list of methods
+    and dependencies.
+    """
     name: str = Field(description="Module/class name")
     description: str = Field(description="Module purpose and functionality")
     methods: List[Method] = Field(description="List of methods in the module")
@@ -117,17 +136,27 @@ class Module(BaseModel):
 # ============================================================================
 
 class CodebaseScanner:
-    """Scan Java codebase and categorize files"""
+    """
+    Scans a Java codebase to identify and categorize all `.java` files.
+    """
     
     @staticmethod
     def scan(root_path: str) -> List[Dict[str, Any]]:
-        """Recursively scan Java codebase"""
+        """
+        Recursively scans the specified directory for Java files.
+
+        Args:
+            root_path (str): The root directory of the Java codebase.
+
+        Returns:
+            A list of dictionaries, where each dictionary represents a Java file.
+        """
         java_files = []
         
         print(f"📂 Scanning: {root_path}")
         
         for root, dirs, files in os.walk(root_path):
-            # Skip common non-source directories
+            # Exclude common non-source directories to speed up scanning
             dirs[:] = [d for d in dirs if d not in ['.git', 'target', 'build', 'node_modules', '.idea']]
             
             for file in files:
@@ -137,6 +166,7 @@ class CodebaseScanner:
                         with open(file_path, 'r', encoding='utf-8') as f:
                             content = f.read()
                         
+                        # Store file metadata, including its categorized type
                         java_files.append({
                             'path': file_path,
                             'name': file,
@@ -152,7 +182,16 @@ class CodebaseScanner:
     
     @staticmethod
     def _categorize(filename: str, content: str) -> str:
-        """Categorize Java file based on naming and annotations"""
+        """
+        Categorizes a Java file based on common naming conventions and annotations.
+
+        Args:
+            filename (str): The name of the file.
+            content (str): The content of the file.
+
+        Returns:
+            A string representing the category of the file (e.g., "Controller").
+        """
         if 'Controller' in filename or '@Controller' in content or '@RestController' in content:
             return 'Controller'
         elif 'Service' in filename or '@Service' in content:
@@ -178,27 +217,39 @@ class CodebaseScanner:
 # ============================================================================
 
 class JavaAnalyzer:
-    """Analyze Java code using LangChain with structured outputs"""
+    """
+    Analyzes Java code using a LangChain pipeline, with support for structured
+    output and handling of large files.
+    """
     
     def __init__(self, llm, provider: str):
+        """
+        Initializes the analyzer with an LLM instance and a text splitter.
+
+        Args:
+            llm: The initialized LangChain LLM instance.
+            provider (str): The name of the LLM provider.
+        """
         self.llm = llm
         self.provider = provider
         
-        # Language-aware text splitter for large files
+        # A language-aware splitter for handling large Java files
         self.text_splitter = RecursiveCharacterTextSplitter.from_language(
             language=Language.JAVA,
-            chunk_size=8000,  # ~2000 tokens
-            chunk_overlap=500  # Preserve context between chunks
+            chunk_size=8000,  # Aim for chunks of ~2000 tokens
+            chunk_overlap=500  # Overlap to preserve context between chunks
         )
         
-        # Pydantic parser for structured output
+        # Pydantic parser for enforcing a structured JSON output
         self.module_parser = PydanticOutputParser(pydantic_object=Module)
         
-        # Setup analysis chain
+        # Set up the LangChain analysis pipeline
         self._setup_analysis_chain()
     
     def _setup_analysis_chain(self):
-        """Setup LangChain prompt and chain for analysis"""
+        """
+        Defines the LangChain prompt and chain for code analysis.
+        """
         
         analysis_template = """You are an expert Java code analyzer. Analyze the following Java code and extract structured information.
 
@@ -224,18 +275,23 @@ Return valid JSON matching the schema."""
     
     def analyze_file(self, file_info: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Analyze a Java file using LangChain with automatic validation
-        Handles large files with intelligent chunking
+        Analyzes a single Java file, handling large files by splitting them into chunks.
+
+        Args:
+            file_info (Dict): A dictionary containing the file's metadata.
+
+        Returns:
+            A dictionary with the structured analysis of the file.
         """
         try:
-            # For large files, use chunking
+            # For large files, switch to a chunk-based analysis
             if len(file_info['content']) > 10000:
                 return self._analyze_large_file(file_info)
             
-            # Use Pydantic parser for structured output
+            # Get formatting instructions from the Pydantic parser
             format_instructions = self.module_parser.get_format_instructions()
             
-            # Invoke the chain
+            # Invoke the analysis chain
             response = self.analysis_chain.invoke({
                 "file_name": file_info['name'],
                 "file_type": file_info['type'],
@@ -243,10 +299,10 @@ Return valid JSON matching the schema."""
                 "format_instructions": format_instructions
             })
             
-            # Parse with automatic validation
+            # Parse the LLM's response with automatic validation
             module = self.module_parser.parse(response.content)
             
-            # Convert to output format
+            # Format the output
             return {
                 "name": file_info['name'].replace('.java', ''),
                 "description": module.description,
@@ -267,6 +323,7 @@ Return valid JSON matching the schema."""
             
         except Exception as e:
             print(f"  ⚠️  Analysis failed for {file_info['name']}: {str(e)[:100]}")
+            # Return a fallback structure on failure
             return {
                 "name": file_info['name'].replace('.java', ''),
                 "description": "Analysis unavailable",
@@ -278,26 +335,34 @@ Return valid JSON matching the schema."""
             }
     
     def _analyze_large_file(self, file_info: Dict[str, Any]) -> Dict[str, Any]:
-        """Handle large files with LangChain's intelligent chunking"""
+        """
+        Handles the analysis of large files by splitting them into chunks.
+
+        Args:
+            file_info (Dict): Metadata for the large file.
+
+        Returns:
+            A dictionary with the combined analysis from all chunks.
+        """
         print(f"  📄 Large file detected, using chunking...")
         
         from langchain_core.documents import Document
         
-        # Create document
+        # Create a LangChain Document for splitting
         doc = Document(page_content=file_info['content'], metadata={"source": file_info['name']})
         
-        # Split into chunks (preserves context)
+        # Split the document into manageable chunks
         chunks = self.text_splitter.split_documents([doc])
         print(f"  ✂️  Split into {len(chunks)} chunks")
         
-        # Analyze each chunk
+        # Analyze each chunk individually
         all_methods = []
         all_dependencies = set()
         descriptions = []
         
-        for i, chunk in enumerate(chunks[:5]):  # Limit to first 5 chunks to save tokens
+        for i, chunk in enumerate(chunks[:5]):  # Limit to 5 chunks to manage token usage
             try:
-                # Simplified analysis for chunks
+                # A simplified prompt for analyzing individual chunks
                 chunk_prompt = f"""Analyze this Java code segment:
 
 {chunk.page_content}
@@ -311,7 +376,7 @@ Return as JSON with fields: methods (array), dependencies (array), description (
                 
                 response = self.llm.invoke(chunk_prompt)
                 
-                # Parse response
+                # Extract JSON from the response
                 import re
                 json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
                 if json_match:
@@ -325,7 +390,7 @@ Return as JSON with fields: methods (array), dependencies (array), description (
             except:
                 continue
         
-        # Combine results
+        # Combine the results from all chunks
         return {
             "name": file_info['name'].replace('.java', ''),
             "description": " ".join(descriptions) if descriptions else "Large module with multiple components",
@@ -337,8 +402,17 @@ Return as JSON with fields: methods (array), dependencies (array), description (
         }
     
     def generate_overview(self, modules: List[Dict]) -> str:
-        """Generate project overview using LLM"""
+        """
+        Generates a high-level project overview using a summary of the modules.
+
+        Args:
+            modules (List[Dict]): A list of analyzed modules.
+
+        Returns:
+            A string containing the project overview.
+        """
         
+        # Create a brief summary of the first 10 modules
         module_summary = "\n".join([
             f"- {m['name']} ({m['type']}): {m['description'][:80]}..."
             for m in modules[:10]
@@ -355,7 +429,7 @@ Overview:"""
             response = self.llm.invoke(overview_prompt)
             return response.content.strip()
         except:
-            return "A Java application with layered architecture including controllers, services, and data access components."
+            return "A Java application with a layered architecture, including controllers, services, and data access components."
 
 
 # ============================================================================
@@ -363,17 +437,29 @@ Overview:"""
 # ============================================================================
 
 class CodeConverter:
-    """Convert Java to Node.js using LangChain sequential chains"""
+    """
+    Converts Java code to Node.js using a sequential LangChain chain that first
+    analyzes the code and then performs the conversion.
+    """
     
     def __init__(self, llm, provider: str):
+        """
+        Initializes the converter and sets up the conversion chain.
+
+        Args:
+            llm: An initialized LangChain LLM instance.
+            provider (str): The name of the LLM provider.
+        """
         self.llm = llm
         self.provider = provider
         self._setup_conversion_chain()
     
     def _setup_conversion_chain(self):
-        """Setup multi-step conversion chain using LCEL"""
+        """
+        Sets up a multi-step conversion chain using LangChain Expression Language (LCEL).
+        """
         
-        # Step 1: Analyze structure
+        # Step 1: A prompt to analyze the structure of the Java code
         structure_template = """Analyze the structure of this Java {module_type}:
 
 {java_code}
@@ -388,7 +474,7 @@ Structural analysis:"""
 
         structure_prompt = PromptTemplate.from_template(structure_template)
         
-        # Step 2: Convert with context
+        # Step 2: A prompt that uses the analysis to convert the code to Node.js
         conversion_template = """Based on this analysis:
 {structure}
 
@@ -408,7 +494,7 @@ Provide only the complete, production-ready Node.js code:"""
 
         conversion_prompt = PromptTemplate.from_template(conversion_template)
         
-        # LCEL Chain
+        # Define the sequential chain using LCEL
         self.conversion_chain = (
             RunnablePassthrough.assign(
                 structure=(structure_prompt | self.llm | StrOutputParser())
@@ -419,8 +505,18 @@ Provide only the complete, production-ready Node.js code:"""
         )
     
     def convert(self, java_code: str, module_type: str) -> str:
-        """Convert Java code to Node.js using multi-step chain"""
+        """
+        Converts a string of Java code to Node.js.
+
+        Args:
+            java_code (str): The Java code to convert.
+            module_type (str): The type of the Java module (e.g., "Controller").
+
+        Returns:
+            A string containing the converted Node.js code.
+        """
         
+        # A mapping of Java module types to their Node.js framework equivalents
         framework_map = {
             'Controller': 'Express.js with routing and middleware',
             'Service': 'ES6 class with business logic',
@@ -434,6 +530,7 @@ Provide only the complete, production-ready Node.js code:"""
         }
         
         try:
+            # Invoke the conversion chain
             nodejs_code = self.conversion_chain.invoke({
                 "module_type": module_type,
                 "java_code": java_code,
@@ -451,22 +548,30 @@ Provide only the complete, production-ready Node.js code:"""
 # ============================================================================
 
 def main():
-    """Main execution flow"""
+    """
+    The main execution flow of the script.
+    """
     
-    # Configuration
-    CODEBASE_PATH = os.getenv('CODEBASE_PATH', './java-dir')
-    OUTPUT_DIR = './output'
+    # Set up command-line argument parsing
+    parser = argparse.ArgumentParser(description="Java to Node.js Codebase Analyzer and Converter")
+    parser.add_argument("--codebase_path", help="Path to the Java codebase to be analyzed.")
+    parser.add_argument("--output_dir", default="./output", help="Directory to save the output files.")
+    args = parser.parse_args()
+
+    # Determine the codebase path, prioritizing the command-line argument
+    codebase_path = args.codebase_path or os.getenv('CODEBASE_PATH', './java-dir')
+    output_dir = args.output_dir
     
-    # Create output directories
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    os.makedirs(f"{OUTPUT_DIR}/converted", exist_ok=True)
+    # Ensure output directories exist
+    os.makedirs(output_dir, exist_ok=True)
+    os.makedirs(f"{output_dir}/converted", exist_ok=True)
     
     print("=" * 70)
     print("🚀 Java to Node.js Converter (LangChain)")
     print("=" * 70)
     print()
     
-    # Initialize LLM (Gemini primary, Anthropic fallback)
+    # Initialize the LLM
     try:
         llm, provider = initialize_llm(temperature=0.3, max_tokens=4000)
         print(f"🤖 LLM Provider: {provider}\n")
@@ -474,15 +579,15 @@ def main():
         print(f"❌ {e}")
         return
     
-    # Step 1: Scan codebase
+    # Step 1: Scan the codebase for Java files
     scanner = CodebaseScanner()
-    java_files = scanner.scan(CODEBASE_PATH)
+    java_files = scanner.scan(codebase_path)
     
     if not java_files:
-        print(f"❌ No Java files found in {CODEBASE_PATH}")
+        print(f"❌ No Java files found in {codebase_path}")
         return
     
-    # Step 2: Analyze files
+    # Step 2: Analyze the Java files
     print("🧠 Analyzing Java files with LangChain...\n")
     analyzer = JavaAnalyzer(llm, provider)
     modules = []
@@ -492,11 +597,11 @@ def main():
         module = analyzer.analyze_file(file_info)
         modules.append(module)
     
-    # Step 3: Generate project overview
+    # Step 3: Generate a high-level project overview
     print("\n📊 Generating project overview...")
     project_overview = analyzer.generate_overview(modules)
     
-    # Step 4: Create structured output
+    # Step 4: Save the structured analysis to a JSON file
     structured_output = {
         "projectOverview": project_overview,
         "modules": modules,
@@ -507,7 +612,7 @@ def main():
         }
     }
     
-    output_file = f"{OUTPUT_DIR}/analysis.json"
+    output_file = f"{output_dir}/analysis.json"
     with open(output_file, 'w', encoding='utf-8') as f:
         json.dump(structured_output, f, indent=2)
     
@@ -516,28 +621,28 @@ def main():
     # Step 5: Convert selected files to Node.js
     print("🔄 Converting selected files to Node.js...\n")
     
-    # Re-initialize LLM for conversion with different parameters
+    # Re-initialize the LLM with settings optimized for conversion
     converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=8000)
     converter = CodeConverter(converter_llm, provider)
     
-    # Select all files for conversion
+    # Convert all modules that have methods
     modules_to_convert = modules
 
     converted_files = []
 
     for module in modules_to_convert:
-        if module and module['methods']:  # Only convert if has methods
+        if module and module['methods']:  # Only convert files with methods
             print(f"  Converting {module['name']} ({module['type']})...")
             
-            # Read original Java file
+            # Read the original Java file content
             with open(module['filePath'], 'r', encoding='utf-8') as f:
                 java_code = f.read()
             
-            # Convert using LangChain chain
-            nodejs_code = converter.convert(java_code, module['type'])
+            # Perform the conversion
+            nodejs__code = converter.convert(java_code, module['type'])
             
-            # Save converted file
-            output_path = f"{OUTPUT_DIR}/converted/{module['name']}.js"
+            # Save the converted Node.js code
+            output_path = f"{output_dir}/converted/{module['name']}.js"
             with open(output_path, 'w', encoding='utf-8') as f:
                 f.write(nodejs_code)
             
@@ -549,19 +654,19 @@ def main():
             
             print(f"  ✅ Saved to: {output_path}\n")
     
-    # Save conversion summary
-    with open(f"{OUTPUT_DIR}/conversions.json", 'w') as f:
+    # Save a summary of the conversions
+    with open(f"{output_dir}/conversions.json", 'w') as f:
         json.dump({
             "llmProvider": provider,
             "conversions": converted_files
         }, f, indent=2)
     
-    # Summary
+    # Final summary
     print("=" * 70)
     print("✨ Conversion Complete!")
     print("=" * 70)
     print(f"\n🤖 LLM Provider Used: {provider}")
-    print(f"📁 Output Location: {OUTPUT_DIR}/")
+    print(f"📁 Output Location: {output_dir}/")
     print(f"   - analysis.json: Structured knowledge extraction")
     print(f"   - converted/: Node.js files ({len(converted_files)} files)")
     print(f"   - conversions.json: Conversion summary")
