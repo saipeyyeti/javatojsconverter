@@ -161,6 +161,14 @@ class CodebaseScanner:
             return 'DAO'
         elif 'Model' in filename or 'Entity' in filename or '@Entity' in content:
             return 'Model'
+        elif 'DTO' in filename:
+            return 'DTO'
+        elif 'Config' in filename or '@Configuration' in content:
+            return 'Configuration'
+        elif 'Exception' in filename:
+            return 'Exception'
+        elif '@Component' in content:
+            return 'Component'
         else:
             return 'Util'
 
@@ -416,7 +424,13 @@ Provide only the complete, production-ready Node.js code:"""
         framework_map = {
             'Controller': 'Express.js with routing and middleware',
             'Service': 'ES6 class with business logic',
-            'DAO': 'Sequelize ORM for database access'
+            'DAO': 'Sequelize ORM for database access',
+            'Model': 'ES6 class for data structure',
+            'DTO': 'Plain JavaScript object for data transfer',
+            'Configuration': 'Module exporting configuration objects',
+            'Exception': 'Custom Error class',
+            'Component': 'ES6 module or class',
+            'Util': 'Collection of utility functions'
         }
         
         try:
@@ -506,8 +520,8 @@ def main():
     converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=8000)
     converter = CodeConverter(converter_llm, provider)
     
-    # Select all controllers, services, and DAOs
-    modules_to_convert = [m for m in modules if m['type'] in ['Controller', 'Service', 'DAO']]
+    # Select all files for conversion
+    modules_to_convert = modules
 
     converted_files = []
 
