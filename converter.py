@@ -65,7 +65,7 @@ def initialize_llm(temperature: float = 0.3, max_tokens: int = 4000):
             from langchain_google_genai import ChatGoogleGenerativeAI
             print("✅ Using Google Gemini")
             llm = ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 google_api_key=gemini_key,
                 temperature=temperature,
                 max_tokens=max_tokens,
