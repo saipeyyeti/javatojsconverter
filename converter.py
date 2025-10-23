@@ -454,7 +454,7 @@ def main():
     """Main execution flow"""
     
     # Configuration
-    CODEBASE_PATH = os.getenv('CODEBASE_PATH', './sakila-java')
+    CODEBASE_PATH = os.getenv('CODEBASE_PATH', './java-dir')
     OUTPUT_DIR = './output'
     
     # Create output directories
