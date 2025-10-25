@@ -1,522 +1,428 @@
-```javascript
-// app.js
+// my-node-app/src/index.js
 /**
- * @file app.js
- * @description The main entry point for the Node.js Sakila Project Application.
- *              This file initiates the application startup process by calling the
- *              orchestrator function from the utility framework.
- *              It serves the same purpose as the `main` method in the original
- *              Java `SakilaProjectApplication` class.
+ * @module index
+ * @description This is the main entry point for the Sakila Project Node.js application.
+ *              It bootstraps the Express server, loads configuration, and sets up global error handling.
+ *              This serves as the Node.js equivalent to the Java Spring Boot `SakilaProjectApplication` class,
+ *              fulfilling the role of the application's bootstrap and entry point within the Node.js ecosystem.
  */
 
-import { startApplication } from './utils/appStarter.js';
+const app = require('./app'); // The configured Express application instance
+const config = require('./config'); // Application configuration
+const logger = require('./utils/logger'); // Logging utility
+const { handleUncaughtException, handleUnhandledRejection } = require('./utils/errorHandler');
 
 /**
- * Immediately invoked function expression (IIFE) to start the application.
- * This pattern ensures that the application startup logic is executed as soon as
- * the script runs, similar to how `public static void main` is invoked by the JVM.
- */
-(async () => {
-    await startApplication();
-})();
-```
-
-```javascript
-// utils/appStarter.js
-/**
- * @module AppStarter
- * @description Provides the core functionality to bootstrap and run the Node.js application.
- *              This module acts as the central orchestrator, mimicking the responsibilities
- *              of `SpringApplication.run()` in Spring Boot by initializing configuration,
- *              database connections, web server, and component registration.
+ * @typedef {object} ServerInfo
+ * @property {string} url - The URL where the server is listening.
+ * @property {number} port - The port number the server is listening on.
+ * @property {string} env - The environment the server is running in.
  */
 
-import { loadConfig } from './configLoader.js';
-import { connectDatabase, disconnectDatabase } from './databaseConnector.js';
-import { createWebServer, startWebServer } from './webServer.js';
-import { registerRoutes } from './routeRegistry.js';
-import { setupGracefulShutdown } from './shutdownHandler.js';
-import { initializeLogger } from './logger.js';
-
 /**
- * The main function to start the Node.js application.
- * This function orchestrates the initialization of configuration, database, web server,
- * component registration, and graceful shutdown, acting as the application's entry point.
- * It leverages async/await for sequential and error-handled execution of startup tasks.
+ * Asynchronously initializes and starts the Node.js application server.
+ * This function encapsulates the entire application bootstrap process,
+ * including setting up global error handlers and starting the HTTP server.
  *
  * @async
- * @function startApplication
- * @returns {Promise<void>} A promise that resolves when the application has started successfully.
- * @throws {Error} If any critical step during application startup fails, the process will exit.
+ * @function bootstrapApplication
+ * @returns {Promise<ServerInfo>} A promise that resolves with server information once the server is successfully started.
+ * @throws {Error} If the server fails to start or encounters a critical error during initialization.
  */
-export async function startApplication() {
-    // Initialize a basic logger early for consistent output
-    const logger = initializeLogger();
-    logger.info('🚀 Starting Node.js Sakila Project Application...');
+async function bootstrapApplication() {
+  // --- Global Process-Level Error Handling ---
+  // These handlers catch errors that are not caught by try/catch blocks or promise .catch() methods.
+  // It's crucial for preventing the Node.js process from crashing unexpectedly and for logging critical errors.
+  process.on('uncaughtException', handleUncaughtException);
+  process.on('unhandledRejection', handleUnhandledRejection);
 
-    let server = null;
-    let dbClient = null;
+  try {
+    const port = config.port;
+    const env = config.env;
 
-    try {
-        // 1. Initialize Configuration (mimics @Configuration and part of @EnableAutoConfiguration)
-        /** @type {import('./configLoader').AppConfig} */
-        const config = loadConfig();
-        logger.info('✅ Configuration loaded.');
+    // Start the Express server to listen for incoming requests.
+    const server = app.listen(port, () => {
+      logger.info(`Server is running on port ${port} in ${env} mode.`);
+      logger.info(`Access the application at: http://localhost:${port}`);
+    });
 
-        // 2. Setup Database (mimics auto-configuration for database based on config)
-        if (config.database && config.database.enabled) {
-            dbClient = await connectDatabase(config.database);
-            logger.info('✅ Database connected successfully.');
-        } else {
-            logger.warn('⚠️ Database connection skipped: not enabled in configuration.');
-        }
+    // Register a listener for the 'close' event on the server.
+    // This is useful for logging when the server gracefully shuts down.
+    server.on('close', () => {
+      logger.info('Server closed.');
+    });
 
-        // 3. Setup Web Server (mimics embedded server and web-related auto-configuration)
-        const app = createWebServer();
-        logger.info('✅ Web server initialized.');
+    // Register a listener for 'error' events on the server.
+    // This catches errors that occur during the server's operation (e.g., port already in use).
+    server.on('error', (error) => {
+      logger.error(`Server encountered a critical error: ${error.message}`, error);
+      // Re-throw the error to be caught by the outer try-catch block,
+      // which will then trigger a process exit.
+      throw error;
+    });
 
-        // 4. Register Components/Routes (mimics @ComponentScan for web components)
-        // This step dynamically loads and registers API routes. In a more complex app,
-        // this would also involve loading services, controllers, and setting up DI.
-        registerRoutes(app, dbClient, logger); // Pass dbClient and logger if routes/controllers need them
-        logger.info('✅ API routes registered.');
+    // Return information about the started server.
+    return {
+      url: `http://localhost:${port}`,
+      port,
+      env,
+    };
 
-        // 5. Start Web Server
-        server = await startWebServer(app, config.server.port);
-        logger.info(`✅ Web server listening on port ${config.server.port}.`);
-
-        // 6. Setup Graceful Shutdown
-        setupGracefulShutdown(server, dbClient, logger);
-        logger.info('✅ Graceful shutdown configured.');
-
-        logger.info('🎉 Node.js Sakila Project Application started successfully!');
-    } catch (error) {
-        logger.error('❌ Failed to start application:', error.message);
-        logger.error(error.stack);
-
-        // Attempt to clean up resources before exiting
-        if (server) {
-            logger.warn('Attempting to close web server due to startup failure...');
-            await new Promise(resolve => server.close(resolve)).catch(e => logger.error('Error closing server during failure:', e.message));
-        }
-        if (dbClient) {
-            logger.warn('Attempting to disconnect database due to startup failure...');
-            await disconnectDatabase(dbClient).catch(e => logger.error('Error disconnecting database during failure:', e.message));
-        }
-
-        process.exit(1); // Exit with a failure code
-    }
+  } catch (error) {
+    // Catch any errors that occur during the synchronous part of bootstrapApplication
+    // or re-thrown errors from server.on('error').
+    logger.error(`Failed to bootstrap application: ${error.message}`, error);
+    // Exit the process with a failure code (1) to indicate an abnormal termination.
+    process.exit(1);
+  }
 }
-```
 
-```javascript
-// utils/configLoader.js
+// --- Application Entry Point Execution ---
+// This block ensures that `bootstrapApplication` is called only when this script is executed directly
+// (e.g., `node src/index.js`), not when it's imported as a module.
+if (require.main === module) {
+  bootstrapApplication()
+    .then((info) => {
+      logger.info('Application successfully started and ready to accept connections.', info);
+    })
+    .catch((error) => {
+      // This catch block handles any promise rejections from `bootstrapApplication`
+      // that might not have been caught internally, ensuring a clean exit.
+      logger.error('Application failed to start due to an unhandled error during bootstrap.', error);
+      process.exit(1);
+    });
+}
+
+// my-node-app/src/app.js
 /**
- * @module ConfigLoader
- * @description Handles loading and providing application configuration.
- *              It loads environment variables and merges them with default settings,
- *              mimicking the configuration capabilities of Spring Boot.
+ * @module app
+ * @description Configures and exports the Express application instance.
+ *              This file sets up essential middleware, defines application routes,
+ *              and integrates global error handling, acting as the core web application setup.
  */
 
-import dotenv from 'dotenv';
+const express = require('express');
+const helmet = require('helmet'); // Security middleware for setting various HTTP headers
+const cors = require('cors');     // Middleware for enabling Cross-Origin Resource Sharing
+const morgan = require('morgan'); // HTTP request logger middleware
 
-// Load environment variables from .env file
-dotenv.config();
-
-/**
- * @typedef {object} DatabaseConfig
- * @property {boolean} enabled - Whether the database connection is enabled.
- * @property {string} host - The database host.
- * @property {number} port - The database port.
- * @property {string} user - The database user.
- * @property {string} password - The database password.
- * @property {string} database - The database name.
- * @property {number} connectionTimeoutMillis - The database connection timeout in milliseconds.
- */
+const { expressErrorHandler } = require('./utils/errorHandler'); // Custom Express error handler
+const logger = require('./utils/logger'); // Custom logging utility
 
 /**
- * @typedef {object} ServerConfig
- * @property {number} port - The port on which the web server will listen.
+ * Creates and configures the Express application.
+ * This function encapsulates all Express-related setup, including middleware and routes.
+ *
+ * @returns {import('express').Application} The configured Express application instance.
  */
+function createApplication() {
+  const app = express();
+
+  // --- Essential Middleware Setup ---
+  // Helmet helps secure Express apps by setting various HTTP headers.
+  app.use(helmet());
+
+  // CORS middleware enables all origins by default.
+  // In a production environment, this should be configured to allow specific origins.
+  app.use(cors());
+
+  // express.json() parses incoming requests with JSON payloads.
+  // It's a built-in middleware function in Express.
+  app.use(express.json());
+
+  // Morgan logs HTTP requests. 'combined' is good for production, 'dev' for development.
+  // The output is streamed to our custom logger.
+  app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev', {
+    stream: {
+      write: (message) => logger.info(message.trim()),
+    },
+  }));
+
+  // --- Application Routes ---
+  /**
+   * @swagger
+   * /:
+   *   get:
+   *     summary: Returns a simple welcome message for the application.
+   *     description: This is the root endpoint, providing a basic confirmation that the server is running.
+   *     responses:
+   *       200:
+   *         description: A successful response with a welcome message.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 message:
+   *                   type: string
+   *                   example: Welcome to the Sakila Project Node.js Application!
+   */
+  app.get('/', (req, res) => {
+    res.json({ message: 'Welcome to the Sakila Project Node.js Application!' });
+  });
+
+  /**
+   * @swagger
+   * /api/status:
+   *   get:
+   *     summary: Checks the operational status of the API.
+   *     description: Returns the current status of the API and its uptime.
+   *     responses:
+   *       200:
+   *         description: API is running successfully.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: running
+   *                 uptime:
+   *                   type: number
+   *                   example: 123.45
+   */
+  app.get('/api/status', (req, res) => {
+    res.json({ status: 'running', uptime: process.uptime() });
+  });
+
+  /**
+   * @swagger
+   * /api/error-test:
+   *   get:
+   *     summary: Endpoint to simulate an asynchronous error.
+   *     description: This route is for testing the application's error handling mechanism.
+   *                  It intentionally throws an error after a short delay.
+   *     responses:
+   *       500:
+   *         description: An internal server error occurred due to the simulated error.
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 status:
+   *                   type: string
+   *                   example: error
+   *                 message:
+   *                   type: string
+   *                   example: This is a simulated error from /api/error-test
+   */
+  app.get('/api/error-test', (req, res, next) => {
+    // Simulate an asynchronous error to test error handling.
+    setTimeout(() => {
+      try {
+        throw new Error('This is a simulated error from /api/error-test');
+      } catch (error) {
+        // Pass the error to the next middleware (our global error handler).
+        next(error);
+      }
+    }, 100); // A small delay to make it asynchronous
+  });
+
+  // --- Error Handling Middleware ---
+  // This middleware catches requests that don't match any defined routes (404 Not Found).
+  app.use((req, res, next) => {
+    const error = new Error(`Not Found - ${req.originalUrl}`);
+    error.statusCode = 404; // Custom property to set HTTP status code
+    next(error); // Pass the error to the next error-handling middleware
+  });
+
+  // This is the global error handling middleware.
+  // It must be the last middleware function added to the Express app.
+  app.use(expressErrorHandler);
+
+  return app;
+}
+
+module.exports = createApplication();
+
+
+// my-node-app/src/config/index.js
+/**
+ * @module config
+ * @description Centralized configuration management for the application.
+ *              Loads environment variables from a `.env` file and provides default values.
+ *              This module ensures that application settings are easily accessible and manageable.
+ */
+
+// Load environment variables from .env file into process.env.
+// This should be called as early as possible in the application's lifecycle.
+require('dotenv').config();
 
 /**
  * @typedef {object} AppConfig
- * @property {ServerConfig} server - Configuration for the web server.
- * @property {DatabaseConfig} database - Configuration for the database connection.
- * @property {string} env - The current application environment (e.g., 'development', 'production').
+ * @property {number} port - The port number on which the server will listen.
+ * @property {string} env - The current environment (e.g., 'development', 'production', 'test').
+ * @property {string} [databaseUrl] - An example of a database connection URL (not used in this minimal app).
  */
 
 /**
- * Loads and returns the application configuration.
- * It prioritizes environment variables over default values.
+ * Retrieves the application configuration.
+ * Environment variables take precedence over default values.
  *
- * @function loadConfig
- * @returns {AppConfig} The complete application configuration object.
- * @throws {Error} If critical environment variables are missing (e.g., DB credentials when enabled).
+ * @returns {AppConfig} The application configuration object.
  */
-export function loadConfig() {
-    const config = {
-        env: process.env.NODE_ENV || 'development',
-        server: {
-            port: parseInt(process.env.PORT || '8080', 10),
-        },
-        database: {
-            enabled: process.env.DB_ENABLED === 'true',
-            host: process.env.DB_HOST || 'localhost',
-            port: parseInt(process.env.DB_PORT || '5432', 10),
-            user: process.env.DB_USER || 'sakila_user',
-            password: process.env.DB_PASSWORD || 'sakila_password',
-            database: process.env.DB_NAME || 'sakila',
-            connectionTimeoutMillis: parseInt(process.env.DB_CONNECTION_TIMEOUT_MILLIS || '5000', 10),
-        },
-        // Add other configuration sections as needed
-    };
-
-    // Basic validation for critical database settings if enabled
-    if (config.database.enabled) {
-        const requiredDbVars = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME'];
-        const missingVars = requiredDbVars.filter(key => !process.env[key]);
-        if (missingVars.length > 0) {
-            throw new Error(`Missing critical database environment variables: ${missingVars.join(', ')}. Please check your .env file or environment settings.`);
-        }
-    }
-
-    return config;
+function getConfig() {
+  return {
+    // Parse PORT from environment variables, default to 3000 if not set.
+    port: parseInt(process.env.PORT || '3000', 10),
+    // Get NODE_ENV from environment variables, default to 'development'.
+    env: process.env.NODE_ENV || 'development',
+    // Example of another configuration item:
+    // databaseUrl: process.env.DATABASE_URL || 'mongodb://localhost:27017/sakila_db',
+  };
 }
-```
 
-```javascript
-// utils/databaseConnector.js
+// Export the configuration object directly for easy access throughout the application.
+module.exports = getConfig();
+
+
+// my-node-app/src/utils/logger.js
 /**
- * @module DatabaseConnector
- * @description Handles establishing and closing the database connection.
- *              This module simulates the auto-configuration of a database
- *              connection in Spring Boot. It uses the 'pg' library for PostgreSQL.
+ * @module utils/logger
+ * @description A simple, console-based logging utility for the application.
+ *              In a real-world production scenario, this would typically integrate
+ *              with a more robust logging library like Winston or Pino, which offer
+ *              features like log levels, transports (file, remote), and structured logging.
  */
 
-import pg from 'pg';
-import { initializeLogger } from './logger.js';
-
-const logger = initializeLogger();
-
 /**
- * Connects to the PostgreSQL database using the provided configuration.
- *
- * @async
- * @function connectDatabase
- * @param {import('./configLoader').DatabaseConfig} dbConfig - The database configuration object.
- * @returns {Promise<pg.Pool>} A promise that resolves with the PostgreSQL connection pool.
- * @throws {Error} If the database connection fails after retries.
+ * Logs an informational message to the console.
+ * @param {string} message - The primary message to log.
+ * @param {object} [data] - Optional additional data or context to include with the log.
  */
-export async function connectDatabase(dbConfig) {
-    const pool = new pg.Pool({
-        host: dbConfig.host,
-        port: dbConfig.port,
-        user: dbConfig.user,
-        password: dbConfig.password,
-        database: dbConfig.database,
-        connectionTimeoutMillis: dbConfig.connectionTimeoutMillis,
-        max: 10, // Max number of clients in the pool
-        idleTimeoutMillis: 30000, // How long a client is allowed to remain idle before being closed
-    });
-
-    let retries = 5;
-    while (retries > 0) {
-        try {
-            // Attempt to get a client from the pool to verify connection
-            const client = await pool.connect();
-            client.release(); // Release the client back to the pool
-            logger.info(`Successfully connected to database: ${dbConfig.database} at ${dbConfig.host}:${dbConfig.port}`);
-            return pool;
-        } catch (error) {
-            logger.error(`Failed to connect to database. Retries left: ${retries - 1}. Error: ${error.message}`);
-            retries--;
-            if (retries === 0) {
-                throw new Error(`Exceeded maximum database connection retries. Last error: ${error.message}`);
-            }
-            await new Promise(res => setTimeout(res, 2000)); // Wait 2 seconds before retrying
-        }
-    }
-    // This line should ideally not be reached, but as a fallback
-    throw new Error('Failed to connect to database after multiple retries.');
+function info(message, data) {
+  console.log(`[INFO] ${new Date().toISOString()} - ${message}`, data ? data : '');
 }
 
 /**
- * Disconnects the PostgreSQL database pool.
- *
- * @async
- * @function disconnectDatabase
- * @param {pg.Pool} pool - The PostgreSQL connection pool to disconnect.
- * @returns {Promise<void>} A promise that resolves when the pool has been gracefully shut down.
- * @throws {Error} If an error occurs during pool shutdown.
+ * Logs a warning message to the console.
+ * @param {string} message - The warning message to log.
+ * @param {object} [data] - Optional additional data or context related to the warning.
  */
-export async function disconnectDatabase(pool) {
-    if (pool) {
-        try {
-            await pool.end();
-            logger.info('Database pool disconnected successfully.');
-        } catch (error) {
-            logger.error('Error disconnecting database pool:', error.message);
-            throw error; // Re-throw to indicate failure
-        }
-    }
-}
-```
-
-```javascript
-// utils/webServer.js
-/**
- * @module WebServer
- * @description Provides utilities for creating and starting an Express.js web server.
- *              This module simulates the embedded web server functionality of Spring Boot.
- */
-
-import express from 'express';
-import http from 'http';
-import { initializeLogger } from './logger.js';
-
-const logger = initializeLogger();
-
-/**
- * Creates and configures an Express application instance.
- * This includes setting up basic middleware.
- *
- * @function createWebServer
- * @returns {express.Application} The configured Express application instance.
- */
-export function createWebServer() {
-    const app = express();
-
-    // Basic middleware
-    app.use(express.json()); // For parsing application/json
-    app.use(express.urlencoded({ extended: true })); // For parsing application/x-www-form-urlencoded
-
-    // Add a simple health check endpoint
-    app.get('/health', (req, res) => {
-        res.status(200).json({ status: 'UP', timestamp: new Date().toISOString() });
-    });
-
-    // Global error handling middleware (should be last)
-    app.use((err, req, res, next) => {
-        logger.error(`Unhandled error: ${err.message}`, err.stack);
-        res.status(err.status || 500).json({
-            error: {
-                message: err.message || 'An unexpected error occurred.',
-                code: err.code || 'INTERNAL_SERVER_ERROR',
-            },
-        });
-    });
-
-    return app;
+function warn(message, data) {
+  console.warn(`[WARN] ${new Date().toISOString()} - ${message}`, data ? data : '');
 }
 
 /**
- * Starts the Express web server on the specified port.
- *
- * @async
- * @function startWebServer
- * @param {express.Application} app - The Express application instance to start.
- * @param {number} port - The port number on which to listen.
- * @returns {Promise<http.Server>} A promise that resolves with the HTTP server instance once it's listening.
- * @throws {Error} If the server fails to start (e.g., port already in use).
+ * Logs an error message to the console.
+ * This function is typically used for reporting critical issues or exceptions.
+ * @param {string} message - The error message to log.
+ * @param {Error|object} [error] - The actual error object or additional data related to the error.
  */
-export async function startWebServer(app, port) {
-    return new Promise((resolve, reject) => {
-        const server = app.listen(port, () => {
-            resolve(server);
-        });
-
-        server.on('error', (error) => {
-            logger.error(`Web server failed to start on port ${port}: ${error.message}`);
-            reject(error);
-        });
-    });
+function error(message, error) {
+  console.error(`[ERROR] ${new Date().toISOString()} - ${message}`, error ? error : '');
 }
-```
-
-```javascript
-// utils/routeRegistry.js
-/**
- * @module RouteRegistry
- * @description Dynamically registers API routes to the Express application.
- *              This module simulates the component scanning functionality of Spring Boot
- *              for web controllers by loading route definitions from a designated directory.
- */
-
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import { initializeLogger } from './logger.js';
-
-const logger = initializeLogger();
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 /**
- * Dynamically registers all route modules found in the 'routes' directory
- * to the provided Express application instance.
- * Each route module is expected to export a default function that takes
- * the Express app, database client, and logger as arguments to define its routes.
- *
- * @function registerRoutes
- * @param {express.Application} app - The Express application instance.
- * @param {pg.Pool | null} dbClient - The PostgreSQL database client pool (can be null if DB is disabled).
- * @param {object} logger - The application logger instance.
- * @returns {void}
- * @throws {Error} If a route file cannot be imported or its default export is not a function.
+ * Logs a debug message to the console.
+ * Debug messages are typically verbose and only logged when the application is in 'development' mode.
+ * @param {string} message - The debug message to log.
+ * @param {object} [data] - Optional additional data or context for debugging.
  */
-export function registerRoutes(app, dbClient, logger) {
-    const routesPath = path.join(__dirname, '../routes');
-
-    if (!fs.existsSync(routesPath)) {
-        logger.warn(`Routes directory not found at ${routesPath}. No routes will be registered.`);
-        return;
-    }
-
-    const routeFiles = fs.readdirSync(routesPath).filter(file => file.endsWith('.js'));
-
-    for (const file of routeFiles) {
-        const routeFilePath = path.join(routesPath, file);
-        try {
-            // Dynamic import for ES Modules
-            import(routeFilePath)
-                .then(module => {
-                    if (typeof module.default === 'function') {
-                        module.default(app, dbClient, logger);
-                        logger.debug(`Registered routes from: ${file}`);
-                    } else {
-                        logger.warn(`Skipping route file ${file}: Default export is not a function.`);
-                    }
-                })
-                .catch(importError => {
-                    logger.error(`Failed to import route file ${file}: ${importError.message}`);
-                    throw new Error(`Error importing route file ${file}: ${importError.message}`);
-                });
-        } catch (error) {
-            logger.error(`Error processing route file ${file}: ${error.message}`);
-            throw new Error(`Failed to register routes from ${file}: ${error.message}`);
-        }
-    }
+function debug(message, data) {
+  // Only log debug messages if the environment is explicitly set to 'development'.
+  if (process.env.NODE_ENV === 'development') {
+    console.debug(`[DEBUG] ${new Date().toISOString()} - ${message}`, data ? data : '');
+  }
 }
-```
 
-```javascript
-// utils/shutdownHandler.js
+module.exports = {
+  info,
+  warn,
+  error,
+  debug,
+};
+
+
+// my-node-app/src/utils/errorHandler.js
 /**
- * @module ShutdownHandler
- * @description Provides functionality for gracefully shutting down the application.
- *              This module ensures that resources like the web server and database
- *              connections are properly closed when the application receives termination signals.
+ * @module utils/errorHandler
+ * @description Provides comprehensive error handling utilities for the Node.js application.
+ *              This includes an Express-specific error handling middleware and global
+ *              handlers for uncaught exceptions and unhandled promise rejections.
  */
 
-import { disconnectDatabase } from './databaseConnector.js';
-import { initializeLogger } from './logger.js';
-
-const logger = initializeLogger();
+const logger = require('./logger'); // Import the custom logger utility
 
 /**
- * Sets up listeners for termination signals (SIGINT, SIGTERM) to perform a graceful shutdown.
- * When a signal is received, it attempts to close the web server and disconnect the database.
+ * Express error handling middleware.
+ * This middleware should be placed as the very last `app.use()` call in the Express application
+ * to catch any errors that occur during request processing.
  *
- * @function setupGracefulShutdown
- * @param {import('http').Server} server - The HTTP server instance to close.
- * @param {import('pg').Pool | null} dbClient - The PostgreSQL database client pool (can be null).
- * @returns {void}
+ * @param {Error} err - The error object passed from previous middleware or route handlers.
+ * @param {import('express').Request} req - The Express request object.
+ * @param {import('express').Response} res - The Express response object.
+ * @param {import('express').NextFunction} next - The Express next middleware function (not typically called here).
  */
-export function setupGracefulShutdown(server, dbClient) {
-    const shutdown = async (signal) => {
-        logger.info(`Received ${signal}. Initiating graceful shutdown...`);
+function expressErrorHandler(err, req, res, next) {
+  // Log the error details using the application's logger.
+  logger.error(`Unhandled Express Error: ${err.message}`, {
+    stack: err.stack,
+    method: req.method,
+    path: req.path,
+    ip: req.ip,
+    // Include original error object for more context if available
+    originalError: err,
+  });
 
-        // Close the web server
-        if (server) {
-            logger.info('Closing HTTP server...');
-            await new Promise((resolve) => {
-                server.close(() => {
-                    logger.info('HTTP server closed.');
-                    resolve();
-                });
-            }).catch(error => logger.error('Error closing HTTP server:', error.message));
-        }
+  // Determine the HTTP status code for the response.
+  // Prioritize custom `statusCode` or `status` properties on the error object,
+  // otherwise default to 500 (Internal Server Error).
+  const statusCode = err.statusCode || err.status || 500;
 
-        // Disconnect the database
-        if (dbClient) {
-            logger.info('Disconnecting database...');
-            await disconnectDatabase(dbClient).catch(error => logger.error('Error disconnecting database:', error.message));
-        }
-
-        logger.info('Application shutdown complete. Exiting process.');
-        process.exit(0);
-    };
-
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-    // Handle uncaught exceptions to ensure graceful shutdown attempts
-    process.on('uncaughtException', (err) => {
-        logger.error('Uncaught Exception:', err.message, err.stack);
-        shutdown('uncaughtException').then(() => process.exit(1)); // Exit with failure code
-    });
-
-    // Handle unhandled promise rejections
-    process.on('unhandledRejection', (reason, promise) => {
-        logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-        // Optionally, re-throw or exit, depending on application robustness requirements
-        // For critical unhandled rejections, it's often safer to exit.
-        shutdown('unhandledRejection').then(() => process.exit(1)); // Exit with failure code
-    });
+  // Send a standardized JSON error response to the client.
+  res.status(statusCode).json({
+    status: 'error',
+    message: err.message || 'An unexpected error occurred.',
+    // In production, avoid sending sensitive details like stack traces to clients.
+    // Only include stack trace in development for debugging purposes.
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
+  });
 }
-```
-
-```javascript
-// utils/logger.js
-/**
- * @module Logger
- * @description Provides a simple, centralized logging utility for the application.
- *              In a production environment, this would typically be replaced by a
- *              more robust logging library like Winston or Pino.
- */
 
 /**
- * A simple logger object that wraps console methods.
- * This allows for easy replacement with a more sophisticated logger later.
+ * Handles uncaught exceptions in the Node.js process.
+ * This catches synchronous errors that were not caught by any `try...catch` block.
+ * Such errors indicate a critical flaw in the application, and it's often best
+ * to exit the process to prevent it from running in an unstable state.
  *
- * @typedef {object} AppLogger
- * @property {function(...any): void} info - Logs informational messages.
- * @property {function(...any): void} warn - Logs warning messages.
- * @property {function(...any): void} error - Logs error messages.
- * @property {function(...any): void} debug - Logs debug messages (only in development).
+ * @param {Error} err - The uncaught exception error object.
+ * @param {string} origin - A string indicating where the exception originated (e.g., 'uncaughtException').
  */
-
-let loggerInstance = null;
-
-/**
- * Initializes and returns a singleton logger instance.
- *
- * @function initializeLogger
- * @returns {AppLogger} The singleton logger instance.
- */
-export function initializeLogger() {
-    if (loggerInstance) {
-        return loggerInstance;
-    }
-
-    const isDevelopment = process.env.NODE_ENV !== 'production';
-
-    loggerInstance = {
-        info: (...args) => console.log(`[INFO] [${new Date().toISOString()}]`, ...args),
-        warn: (...args) => console.warn(`[WARN] [${new Date().toISOString()}]`, ...args),
-        error: (...args) => console.error(`[ERROR] [${new Date().toISOString()}]`, ...args),
-        debug: (...args) => {
-            if (isDevelopment) {
-                console.debug(`[DEBUG] [${new Date().toISOString()}]`, ...args);
-            }
-        },
-    };
-    return loggerInstance;
+function handleUncaughtException(err, origin) {
+  logger.error(`UNCAUGHT EXCEPTION: ${origin} - ${err.message}`, {
+    stack: err.stack,
+    details: err,
+  });
+  // Perform any necessary cleanup (e.g., close database connections, flush logs)
+  // before exiting the process. For simplicity, we just log and exit here.
+  process.exit(1); // Exit with a failure code
 }
-```
 
-```javascript
-// routes/exampleRoute.js
 /**
- * @
+ * Handles unhandled promise rejections in the Node.js process.
+ * This catches asynchronous errors (promises that reject) that were not caught
+ * by a `.catch()` block or `try...catch` in an `async` function.
+ * Similar to uncaught exceptions, these often indicate a critical issue.
+ *
+ * @param {Error} reason - The reason for the unhandled rejection (often an Error object).
+ * @param {Promise<any>} promise - The promise that was rejected.
+ */
+function handleUnhandledRejection(reason, promise) {
+  logger.error(`UNHANDLED REJECTION: ${reason.message || reason}`, {
+    promise,
+    reason,
+    stack: reason instanceof Error ? reason.stack : undefined,
+  });
+  // For unhandled rejections, it's also often best to exit the process
+  // to avoid potential memory leaks or an inconsistent state.
+  process.exit(1); // Exit with a failure code
+}
+
+module.exports = {
+  expressErrorHandler,
+  handleUncaughtException,
+  handleUnhandledRejection,
+};

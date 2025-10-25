@@ -202,6 +202,11 @@
       "outputPath": "./output/converted/StaffService.js"
     },
     {
+      "original": "MockTests",
+      "type": "Util",
+      "outputPath": "./output/converted/MockTests.js"
+    },
+    {
       "original": "SakilaProjectApplicationTests",
       "type": "Util",
       "outputPath": "./output/converted/SakilaProjectApplicationTests.js"

@@ -1,270 +1,260 @@
-```javascript
-// --- Custom Error Definitions ---
-
-/**
- * @class NotFoundError
- * @extends Error
- * @description Custom error class for when a requested resource is not found.
- *              It includes a `statusCode` property for easier handling in HTTP contexts.
- */
-class NotFoundError extends Error {
-  /**
-   * Creates an instance of NotFoundError.
-   * @param {string} message - The error message describing what was not found.
-   */
-  constructor(message) {
-    super(message);
-    this.name = 'NotFoundError';
-    this.statusCode = 404; // Standard HTTP status code for Not Found
-  }
-}
-
-/**
- * @class ValidationError
- * @extends Error
- * @description Custom error class for when input validation fails.
- *              It includes a `statusCode` property for easier handling in HTTP contexts.
- */
-class ValidationError extends Error {
-  /**
-   * Creates an instance of ValidationError.
-   * @param {string} message - The error message describing the validation failure.
-   */
-  constructor(message) {
-    super(message);
-    this.name = 'ValidationError';
-    this.statusCode = 400; // Standard HTTP status code for Bad Request
-  }
-}
-
-// --- Actor Entity Type Definition (for JSDoc clarity) ---
-
+// --- Type Definitions (for JSDoc) ---
 /**
  * @typedef {object} Actor
  * @property {number} actorId - The unique identifier for the actor.
  * @property {string} firstName - The first name of the actor.
  * @property {string} lastName - The last name of the actor.
- * @property {Date} [lastUpdate] - The timestamp of the last update (optional, depending on ORM).
+ * @property {Date} [lastUpdate] - The timestamp of the last update (optional, depending on schema).
  */
 
-// --- ActorRepository Interface (for JSDoc clarity and dependency expectation) ---
-// This section defines the expected interface for the ActorRepository dependency.
-// In a real application, this would be an actual class (e.g., using an ORM like Sequelize or TypeORM)
-// that implements these methods, returning Promises.
+// --- Custom Error Definitions ---
+// In a real-world application, these would typically be in a separate file, e.g., `src/utils/errors.js`
+/**
+ * @class NotFoundError
+ * @extends Error
+ * @description Custom error class for resources not found (HTTP 404).
+ */
+class NotFoundError extends Error {
+    /**
+     * Creates an instance of NotFoundError.
+     * @param {string} message - The error message.
+     */
+    constructor(message) {
+        super(message);
+        this.name = 'NotFoundError';
+        this.statusCode = 404; // Common HTTP status code for Not Found
+    }
+}
 
+// --- ActorRepository Interface (for JSDoc and dependency clarity) ---
+// This is an interface definition for JSDoc. The actual implementation
+// of ActorRepository would be a separate class that interacts with a database.
 /**
  * @interface ActorRepository
- * @description Represents the data access layer for Actor entities.
- *              Methods are expected to return Promises, reflecting asynchronous database operations.
+ * @description Defines the contract for data access operations related to Actor entities.
+ *              Methods are expected to return Promises.
  */
-/**
- * @function ActorRepository#findAll
- * @returns {Promise<Actor[]>} A promise that resolves to a list of all Actor entities.
- */
-/**
- * @function ActorRepository#findByActorId
- * @param {number} id - The ID of the actor to find.
- * @returns {Promise<Actor|null>} A promise that resolves to the Actor entity or `null` if not found.
- */
-/**
- * @function ActorRepository#findByFirstNameAndLastName
- * @param {string} firstName - The first name to search for.
- * @param {string} lastName - The last name to search for.
- * @returns {Promise<Actor[]>} A promise that resolves to a list of Actor entities matching both names.
- */
-/**
- * @function ActorRepository#findByFirstName
- * @param {string} firstName - The first name to search for.
- * @returns {Promise<Actor[]>} A promise that resolves to a list of Actor entities matching the first name.
- */
-/**
- * @function ActorRepository#findByLastName
- * @param {string} lastName - The last name to search for.
- * @returns {Promise<Actor[]>} A promise that resolves to a list of Actor entities matching the last name.
- */
+class ActorRepository {
+    /**
+     * Finds all actors in the data store.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     */
+    async findAll() {
+        throw new Error('Method "findAll" must be implemented by ActorRepository.');
+    }
+
+    /**
+     * Finds an actor by their unique ID.
+     * @param {number} id - The ID of the actor.
+     * @returns {Promise<Actor|null>} A promise that resolves to an Actor object or null if not found.
+     */
+    async findById(id) {
+        throw new Error('Method "findById" must be implemented by ActorRepository.');
+    }
+
+    /**
+     * Finds actors by their first and last name.
+     * @param {string} firstName - The first name to search for.
+     * @param {string} lastName - The last name to search for.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     */
+    async findByFirstNameAndLastName(firstName, lastName) {
+        throw new Error('Method "findByFirstNameAndLastName" must be implemented by ActorRepository.');
+    }
+
+    /**
+     * Finds actors by their first name.
+     * @param {string} firstName - The first name to search for.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     */
+    async findByFirstName(firstName) {
+        throw new Error('Method "findByFirstName" must be implemented by ActorRepository.');
+    }
+
+    /**
+     * Finds actors by their last name.
+     * @param {string} lastName - The last name to search for.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     */
+    async findByLastName(lastName) {
+        throw new Error('Method "findByLastName" must be implemented by ActorRepository.');
+    }
+}
 
 
 // --- ActorService Class ---
-
 /**
  * @class ActorService
- * @description A service layer component designed to handle business logic and data retrieval for Actor entities.
- *              It acts as an intermediary between the presentation layer (e.g., a REST controller)
- *              and the data access layer (ActorRepository). This class embodies the Service Layer pattern,
- *              Dependency Injection, and implicitly acts as a Facade over the repository.
+ * @description Encapsulates business logic related to Actor entities.
+ *              It acts as an intermediary between the presentation layer (e.g., a controller)
+ *              and the data access layer (ActorRepository).
  */
 class ActorService {
-  /**
-   * @private
-   * @type {ActorRepository}
-   * @description The data access layer for Actor entities, injected via the constructor.
-   */
-  #actorRepository; // Using private class fields (ES2019+) for encapsulation
+    /**
+     * @private
+     * @type {ActorRepository}
+     */
+    actorRepository;
 
-  /**
-   * Creates an instance of ActorService.
-   * This constructor uses Dependency Injection to receive its data access layer.
-   * @param {ActorRepository} actorRepository - An instance of the ActorRepository for data access.
-   *                                            This is a required dependency.
-   * @throws {Error} If `actorRepository` is not provided.
-   */
-  constructor(actorRepository) {
-    if (!actorRepository) {
-      throw new Error('ActorRepository must be provided to ActorService during instantiation.');
+    /**
+     * Creates an instance of ActorService.
+     * This constructor uses Dependency Injection to receive the ActorRepository.
+     * @param {ActorRepository} actorRepository - The repository for Actor data access.
+     * @throws {Error} If actorRepository is not provided, ensuring proper initialization.
+     */
+    constructor(actorRepository) {
+        if (!actorRepository) {
+            throw new Error('ActorRepository must be provided to ActorService.');
+        }
+        this.actorRepository = actorRepository;
     }
-    this.#actorRepository = actorRepository;
-  }
 
-  /**
-   * Retrieves all Actor entities from the database.
-   * @returns {Promise<Actor[]>} A promise that resolves to a list of all Actor entities.
-   *                              Returns an empty array if no actors are found.
-   * @throws {Error} If an unexpected error occurs during data retrieval from the repository.
-   */
-  async getAllActors() {
-    try {
-      return await this.#actorRepository.findAll();
-    } catch (error) {
-      console.error('Error in ActorService.getAllActors:', error);
-      // Re-throw a generic error to the caller, hiding internal repository details
-      throw new Error('Failed to retrieve all actors due to a server error.');
+    /**
+     * Retrieves a list of all Actor entities from the data store.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     * @throws {Error} If an unexpected error occurs during data retrieval.
+     */
+    async getAllActors() {
+        try {
+            const actors = await this.actorRepository.findAll();
+            return actors;
+        } catch (error) {
+            console.error(`[ActorService] Error retrieving all actors: ${error.message}`);
+            // Re-throw a more generic error to the caller, hiding internal details
+            throw new Error('Failed to retrieve all actors due to a server error.');
+        }
     }
-  }
 
-  /**
-   * Retrieves a single Actor entity based on its unique `actorId`.
-   * @param {number} id - The unique identifier of the actor. Must be a positive number.
-   * @returns {Promise<Actor>} A promise that resolves to the found Actor entity.
-   * @throws {ValidationError} If the provided `id` is invalid.
-   * @throws {NotFoundError} If no actor is found with the given ID.
-   * @throws {Error} If an unexpected error occurs during data retrieval from the repository.
-   */
-  async getActorByID(id) {
-    if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
-      throw new ValidationError('Invalid actor ID provided. ID must be a positive integer.');
-    }
-    try {
-      const actor = await this.#actorRepository.findByActorId(id);
-      if (!actor) {
-        throw new NotFoundError(`Actor with ID ${id} not found.`);
-      }
-      return actor;
-    } catch (error) {
-      // Re-throw specific errors (ValidationError, NotFoundError) directly
-      if (error instanceof ValidationError || error instanceof NotFoundError) {
-        throw error;
-      }
-      console.error(`Error in ActorService.getActorByID for ID ${id}:`, error);
-      // Re-throw a generic error for other issues
-      throw new Error(`Failed to retrieve actor with ID ${id} due to a server error.`);
-    }
-  }
+    /**
+     * Retrieves a single Actor entity based on its unique `actorId`.
+     * @param {number} id - The unique identifier of the actor.
+     * @returns {Promise<Actor>} A promise that resolves to an Actor object.
+     * @throws {Error} If the provided ID is invalid.
+     * @throws {NotFoundError} If no actor is found with the given ID.
+     * @throws {Error} If an unexpected error occurs during data retrieval.
+     */
+    async getActorByID(id) {
+        if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
+            throw new Error('Invalid actor ID provided. ID must be a positive integer.');
+        }
 
-  /**
-   * Retrieves a list of Actor entities that match both the given first name and last name.
-   * @param {string} firstName - The first name to search for. Must be a non-empty string.
-   * @param {string} lastName - The last name to search for. Must be a non-empty string.
-   * @returns {Promise<Actor[]>} A promise that resolves to a list of matching Actor entities.
-   *                              Returns an empty array if no actors match.
-   * @throws {ValidationError} If `firstName` or `lastName` are invalid.
-   * @throws {Error} If an unexpected error occurs during data retrieval from the repository.
-   */
-  async getActorsByFullName(firstName, lastName) {
-    if (typeof firstName !== 'string' || firstName.trim() === '') {
-      throw new ValidationError('Invalid first name provided. First name cannot be empty.');
+        try {
+            // Assuming the repository method is `findById` for Node.js convention
+            const actor = await this.actorRepository.findById(id);
+            if (!actor) {
+                throw new NotFoundError(`Actor with ID ${id} not found.`);
+            }
+            return actor;
+        } catch (error) {
+            if (error instanceof NotFoundError) {
+                throw error; // Re-throw specific not found error
+            }
+            console.error(`[ActorService] Error retrieving actor by ID ${id}: ${error.message}`);
+            throw new Error(`Failed to retrieve actor with ID ${id} due to a server error.`);
+        }
     }
-    if (typeof lastName !== 'string' || lastName.trim() === '') {
-      throw new ValidationError('Invalid last name provided. Last name cannot be empty.');
-    }
-    try {
-      return await this.#actorRepository.findByFirstNameAndLastName(firstName, lastName);
-    } catch (error) {
-      // Re-throw ValidationError directly
-      if (error instanceof ValidationError) {
-        throw error;
-      }
-      console.error(`Error in ActorService.getActorsByFullName for ${firstName} ${lastName}:`, error);
-      throw new Error(`Failed to retrieve actors by full name '${firstName} ${lastName}' due to a server error.`);
-    }
-  }
 
-  /**
-   * Retrieves a list of Actor entities that match the given first name.
-   * @param {string} firstName - The first name to search for. Must be a non-empty string.
-   * @returns {Promise<Actor[]>} A promise that resolves to a list of matching Actor entities.
-   *                              Returns an empty array if no actors match.
-   * @throws {ValidationError} If `firstName` is invalid.
-   * @throws {Error} If an unexpected error occurs during data retrieval from the repository.
-   */
-  async getActorsByFirstName(firstName) {
-    if (typeof firstName !== 'string' || firstName.trim() === '') {
-      throw new ValidationError('Invalid first name provided. First name cannot be empty.');
-    }
-    try {
-      return await this.#actorRepository.findByFirstName(firstName);
-    } catch (error) {
-      // Re-throw ValidationError directly
-      if (error instanceof ValidationError) {
-        throw error;
-      }
-      console.error(`Error in ActorService.getActorsByFirstName for '${firstName}':`, error);
-      throw new Error(`Failed to retrieve actors by first name '${firstName}' due to a server error.`);
-    }
-  }
+    /**
+     * Retrieves a list of Actor entities that match both the provided first name and last name.
+     * @param {string} firstName - The first name to search for.
+     * @param {string} lastName - The last name to search for.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     * @throws {Error} If first name or last name are invalid.
+     * @throws {Error} If an unexpected error occurs during data retrieval.
+     */
+    async getActorsByFullName(firstName, lastName) {
+        if (typeof firstName !== 'string' || firstName.trim() === '') {
+            throw new Error('First name must be a non-empty string.');
+        }
+        if (typeof lastName !== 'string' || lastName.trim() === '') {
+            throw new Error('Last name must be a non-empty string.');
+        }
 
-  /**
-   * Retrieves a list of Actor entities that match the given last name.
-   * @param {string} lastName - The last name to search for. Must be a non-empty string.
-   * @returns {Promise<Actor[]>} A promise that resolves to a list of matching Actor entities.
-   *                              Returns an empty array if no actors match.
-   * @throws {ValidationError} If `lastName` is invalid.
-   * @throws {Error} If an unexpected error occurs during data retrieval from the repository.
-   */
-  async getActorsByLastName(lastName) {
-    if (typeof lastName !== 'string' || lastName.trim() === '') {
-      throw new ValidationError('Invalid last name provided. Last name cannot be empty.');
+        try {
+            // Assuming the repository method is `findByFirstNameAndLastName` for Node.js convention
+            const actors = await this.actorRepository.findByFirstNameAndLastName(firstName, lastName);
+            return actors;
+        } catch (error) {
+            console.error(`[ActorService] Error retrieving actors by full name (${firstName} ${lastName}): ${error.message}`);
+            throw new Error(`Failed to retrieve actors by full name ${firstName} ${lastName} due to a server error.`);
+        }
     }
-    try {
-      return await this.#actorRepository.findByLastName(lastName);
-    } catch (error) {
-      // Re-throw ValidationError directly
-      if (error instanceof ValidationError) {
-        throw error;
-      }
-      console.error(`Error in ActorService.getActorsByLastName for '${lastName}':`, error);
-      throw new Error(`Failed to retrieve actors by last name '${lastName}' due to a server error.`);
-    }
-  }
 
-  /**
-   * Retrieves an Actor by ID and constructs their full name.
-   * This method demonstrates a simple business operation by combining first and last names,
-   * reusing existing service logic (`getActorByID`).
-   * @param {number} id - The unique identifier of the actor. Must be a positive number.
-   * @returns {Promise<string>} A promise that resolves to the full name of the actor (e.g., "John Doe").
-   * @throws {ValidationError} If the provided `id` is invalid.
-   * @throws {NotFoundError} If no actor is found with the given ID (propagated from `getActorByID`).
-   * @throws {Error} If an unexpected error occurs during data retrieval or name construction.
-   */
-  async getActorFullNameFromID(id) {
-    if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
-      throw new ValidationError('Invalid actor ID provided. ID must be a positive integer.');
+    /**
+     * Retrieves a list of Actor entities that match the provided first name.
+     * @param {string} firstName - The first name to search for.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     * @throws {Error} If the first name is invalid.
+     * @throws {Error} If an unexpected error occurs during data retrieval.
+     */
+    async getActorsByFirstName(firstName) {
+        if (typeof firstName !== 'string' || firstName.trim() === '') {
+            throw new Error('First name must be a non-empty string.');
+        }
+
+        try {
+            // Assuming the repository method is `findByFirstName` for Node.js convention
+            const actors = await this.actorRepository.findByFirstName(firstName);
+            return actors;
+        } catch (error) {
+            console.error(`[ActorService] Error retrieving actors by first name (${firstName}): ${error.message}`);
+            throw new Error(`Failed to retrieve actors by first name ${firstName} due to a server error.`);
+        }
     }
-    try {
-      // Reusing existing service logic to get the actor, promoting code reusability
-      const actor = await this.getActorByID(id);
-      return `${actor.firstName} ${actor.lastName}`;
-    } catch (error) {
-      // Re-throw specific errors (ValidationError, NotFoundError) directly
-      if (error instanceof ValidationError || error instanceof NotFoundError) {
-        throw error;
-      }
-      console.error(`Error in ActorService.getActorFullNameFromID for ID ${id}:`, error);
-      throw new Error(`Failed to get full name for actor with ID ${id} due to a server error.`);
+
+    /**
+     * Retrieves a list of Actor entities that match the provided last name.
+     * @param {string} lastName - The last name to search for.
+     * @returns {Promise<Actor[]>} A promise that resolves to an array of Actor objects.
+     * @throws {Error} If the last name is invalid.
+     * @throws {Error} If an unexpected error occurs during data retrieval.
+     */
+    async getActorsByLastName(lastName) {
+        if (typeof lastName !== 'string' || lastName.trim() === '') {
+            throw new Error('Last name must be a non-empty string.');
+        }
+
+        try {
+            // Assuming the repository method is `findByLastName` for Node.js convention
+            const actors = await this.actorRepository.findByLastName(lastName);
+            return actors;
+        } catch (error) {
+            console.error(`[ActorService] Error retrieving actors by last name (${lastName}): ${error.message}`);
+            throw new Error(`Failed to retrieve actors by last name ${lastName} due to a server error.`);
+        }
     }
-  }
+
+    /**
+     * Retrieves the full name of an Actor based on their unique `actorId`.
+     * This method demonstrates a simple business operation by combining data from an existing method.
+     * @param {number} id - The unique identifier of the actor.
+     * @returns {Promise<string>} A promise that resolves to the full name (e.g., "John Doe").
+     * @throws {Error} If the provided ID is invalid.
+     * @throws {NotFoundError} If no actor is found with the given ID.
+     * @throws {Error} If an unexpected error occurs during data retrieval or name construction.
+     */
+    async getActorFullNameFromID(id) {
+        if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
+            throw new Error('Invalid actor ID provided. ID must be a positive integer.');
+        }
+
+        try {
+            // Reusing the service's own method to retrieve the actor
+            const actor = await this.getActorByID(id); // This method already handles NotFoundError
+
+            // Assuming actor properties are directly accessible (e.g., actor.firstName)
+            // If Actor was a class with getters, it would be actor.getFirstName()
+            return `${actor.firstName} ${actor.lastName}`;
+        } catch (error) {
+            if (error instanceof NotFoundError) {
+                throw error; // Re-throw specific not found error from getActorByID
+            }
+            console.error(`[ActorService] Error getting full name for actor ID ${id}: ${error.message}`);
+            throw new Error(`Failed to get full name for actor with ID ${id} due to a server error.`);
+        }
+    }
 }
 
-// Export the service and custom error classes for use in other modules
-module.exports = { ActorService, NotFoundError, ValidationError };
-```
+// Export the service and custom error for use in other modules
+// In a real project, NotFoundError might be exported from a separate errors.js file.
+export { ActorService, NotFoundError, ActorRepository };

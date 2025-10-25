@@ -1,157 +1,329 @@
-```javascript
 /**
  * @file FilmText.js
- * @description Represents a data model for the `film_text` table from the `sakila` database.
- * This class is a direct translation of a Java JPA Entity, focusing on data representation,
- * object identity, and property access.
+ * @description Represents a film_text entity from the Sakila database.
+ * This class models the data structure and provides methods for data manipulation,
+ * including simulated persistence operations using async/await.
  *
- * In a Node.js environment, the JPA annotations (like @Entity, @Table, @Id, @Column)
- * would typically be replaced by configurations specific to an Object-Relational Mapper (ORM)
- * library such as TypeORM, Sequelize, or Prisma. This class itself serves as the Plain Old
- * JavaScript Object (POJO) that holds the data, and its persistence mapping would be
- * defined externally by the chosen ORM.
+ * In a real-world Node.js application, the persistence methods (findById, findAll, save, update, delete)
+ * would typically interact with a database via an Object-Relational Mapper (ORM) like Sequelize, TypeORM,
+ * or Prisma, or directly with a database driver. The JPA annotations from the Java model
+ * (`@Entity`, `@Table`, `@Id`, `@Column`, `@Basic`) are Java-specific and are conceptually
+ * replaced by the ORM's configuration or schema definition in the Node.js ecosystem.
  *
- * Asynchronous operations (e.g., database interactions like saving or fetching data)
- * would be handled by a separate repository or service layer, utilizing async/await.
- * This model class itself is synchronous as it only defines the data structure and its behavior.
+ * This implementation uses an in-memory array (`#inMemoryStore`) to simulate database interactions
+ * for demonstration purposes, fulfilling the requirement to maintain functionality and use async/await.
  */
 
 /**
- * Represents a single record from the `film_text` table in the `sakila` database.
- * It encapsulates film text data including its ID, title, and description.
- *
- * @class FilmText
- * @property {number} filmId - The unique identifier for the film text (primary key).
- * @property {string} title - The title of the film.
- * @property {string} description - The description of the film.
+ * Represents a FilmText entity, mapping conceptually to the `film_text` table in the `sakila` schema.
+ * This class serves as a Plain Old JavaScript Object (POJO) / Data Transfer Object (DTO)
+ * and provides methods for data access, equality checks, and simulated persistence.
  */
 class FilmText {
     /**
+     * A private static in-memory store to simulate a database table.
+     * In a real application, this would be replaced by an actual database connection
+     * and an ORM's model definition.
+     * @private
+     * @type {Array<Object>}
+     */
+    static #inMemoryStore = [];
+
+    /**
      * Creates an instance of FilmText.
-     * @constructor
-     * @param {number} filmId - The unique identifier for the film text. Must be a positive integer.
-     * @param {string} title - The title of the film. Must be a non-empty string.
-     * @param {string} description - The description of the film. Must be a string.
-     * @throws {Error} If any provided parameter is invalid according to its type or constraints.
+     * @param {number} filmId - The unique identifier for the film text (primary key).
+     * @param {string} title - The title of the film.
+     * @param {string} description - A description of the film.
+     * @throws {Error} If filmId is not a non-negative integer, or title/description are not non-empty strings.
      */
     constructor(filmId, title, description) {
-        // Use setters to leverage validation logic
-        this.filmId = filmId;
-        this.title = title;
-        this.description = description;
+        if (typeof filmId !== 'number' || !Number.isInteger(filmId) || filmId < 0) {
+            throw new Error('FilmText: filmId must be a non-negative integer.');
+        }
+        if (typeof title !== 'string' || title.trim() === '') {
+            throw new Error('FilmText: title must be a non-empty string.');
+        }
+        if (typeof description !== 'string' || description.trim() === '') {
+            throw new Error('FilmText: description must be a non-empty string.');
+        }
+
+        /**
+         * The unique identifier for the film text.
+         * Corresponds to `film_id` column and is the primary key.
+         * @private
+         * @type {number}
+         */
+        this._filmId = filmId;
+
+        /**
+         * The title of the film.
+         * Corresponds to `title` column.
+         * @private
+         * @type {string}
+         */
+        this._title = title;
+
+        /**
+         * A description of the film.
+         * Corresponds to `description` column.
+         * @private
+         * @type {string}
+         */
+        this._description = description;
     }
 
     /**
-     * Get the film ID.
-     * This property is considered the primary key for the FilmText entity.
-     * @returns {number} The unique identifier for the film text.
+     * Gets the film ID.
+     * @returns {number} The film ID.
      */
     get filmId() {
         return this._filmId;
     }
 
     /**
-     * Set the film ID.
-     * @param {number} value - The new film ID. Must be a positive integer.
-     * @throws {Error} If the value is not a valid positive integer.
+     * Sets the film ID.
+     * @param {number} value - The new film ID.
+     * @throws {Error} If the value is not a non-negative integer.
      */
     set filmId(value) {
-        if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-            throw new Error('Invalid Film ID: Must be a positive integer.');
+        if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+            throw new Error('FilmText: filmId must be a non-negative integer.');
         }
         this._filmId = value;
     }
 
     /**
-     * Get the film title.
-     * @returns {string} The title of the film.
+     * Gets the title of the film.
+     * @returns {string} The film title.
      */
     get title() {
         return this._title;
     }
 
     /**
-     * Set the film title.
-     * @param {string} value - The new title. Must be a non-empty string.
-     * @throws {Error} If the value is not a string or is empty.
+     * Sets the title of the film.
+     * @param {string} value - The new title.
+     * @throws {Error} If the value is not a non-empty string.
      */
     set title(value) {
-        if (typeof value !== 'string' || value.trim().length === 0) {
-            throw new Error('Invalid Title: Must be a non-empty string.');
+        if (typeof value !== 'string' || value.trim() === '') {
+            throw new Error('FilmText: title must be a non-empty string.');
         }
         this._title = value;
     }
 
     /**
-     * Get the film description.
-     * @returns {string} The description of the film.
+     * Gets the description of the film.
+     * @returns {string} The film description.
      */
     get description() {
         return this._description;
     }
 
     /**
-     * Set the film description.
-     * @param {string} value - The new description. Must be a string.
-     * @throws {Error} If the value is not a string.
+     * Sets the description of the film.
+     * @param {string} value - The new description.
+     * @throws {Error} If the value is not a non-empty string.
      */
     set description(value) {
-        if (typeof value !== 'string') {
-            throw new Error('Invalid Description: Must be a string.');
+        if (typeof value !== 'string' || value.trim() === '') {
+            throw new Error('FilmText: description must be a non-empty string.');
         }
         this._description = value;
     }
 
     /**
-     * Checks if this FilmText object is equal to another object based on its properties.
-     * This method provides value-based equality, similar to Java's `equals()` method.
-     * It compares `filmId`, `title`, and `description`.
-     *
-     * @param {Object} other - The object to compare with.
-     * @returns {boolean} True if the objects are considered equal, false otherwise.
+     * Compares this FilmText object with another object for equality.
+     * Two FilmText objects are considered equal if they are of the same class
+     * and their `filmId`, `title`, and `description` properties are strictly equal.
+     * This method mirrors the functionality of Java's `equals` method.
+     * @param {Object} o - The object to compare with.
+     * @returns {boolean} True if the objects are equal, false otherwise.
      */
-    isEqual(other) {
-        if (this === other) {
-            return true;
-        }
-        // Check if 'other' is null, not an object, or not an instance of FilmText
-        if (other === null || typeof other !== 'object' || !(other instanceof FilmText)) {
-            return false;
-        }
+    equals(o) {
+        if (this === o) return true; // Same instance
+        if (o === null || this.constructor !== o.constructor) return false; // Null or different class
 
-        // Compare properties for value equality
-        return this._filmId === other._filmId &&
-               this._title === other._title &&
-               this._description === other._description;
+        // Compare significant fields
+        return this._filmId === o._filmId &&
+               this._title === o._title &&
+               this._description === o._description;
     }
 
     /**
-     * Generates a string representation that can be used as a hash key for this object.
-     * This is analogous to Java's `hashCode()` for value-based comparison in hash-based collections
-     * (e.g., using a Map where keys are objects and you need content-based lookup).
-     * The hash string is a concatenation of the object's primary properties.
-     *
-     * @returns {string} A unique string representation based on the object's properties.
+     * Generates a hash string for the FilmText object based on its significant fields.
+     * This method conceptually replaces Java's `hashCode()` for situations where a unique
+     * string representation of an object's content is needed (e.g., as a key in a custom Map
+     * or for logging/debugging). JavaScript's built-in `Map` and `Set` use referential
+     * equality for objects by default, so this is for specific use cases.
+     * @returns {string} A unique string representation of the object's content.
      */
     toHashString() {
-        // Using a delimiter to prevent collision if property values themselves contain the delimiter
-        // This provides a simple, deterministic string for hashing based on content.
+        // A simple, consistent string representation for hashing purposes.
         return `${this._filmId}|${this._title}|${this._description}`;
     }
 
     /**
-     * Returns a plain JavaScript object representation of this FilmText instance.
-     * Useful for serialization (e.g., to JSON) or when interacting with ORMs that expect plain objects.
-     * @returns {Object} A plain object with filmId, title, and description properties.
+     * Converts the FilmText object to a plain JavaScript object.
+     * This is useful for serialization (e.g., to JSON for API responses) or
+     * for passing data to other layers that expect plain data structures.
+     * @returns {Object} A plain object with `filmId`, `title`, and `description` properties.
      */
-    toObject() {
+    toJSON() {
         return {
             filmId: this._filmId,
             title: this._title,
             description: this._description
         };
     }
+
+    // --- Simulated Persistence Methods (using async/await) ---
+    // These methods demonstrate how persistence operations would be handled
+    // in a Node.js environment, using async/await for asynchronous database calls.
+    // They interact with the static `#inMemoryStore` for simulation.
+
+    /**
+     * Simulates finding a FilmText entity by its primary key (filmId).
+     * @param {number} id - The filmId to search for.
+     * @returns {Promise<FilmText|null>} A promise that resolves with the FilmText object if found, otherwise null.
+     * @throws {Error} If the id is invalid or a simulated database error occurs.
+     */
+    static async findById(id) {
+        if (typeof id !== 'number' || !Number.isInteger(id) || id < 0) {
+            throw new Error('FilmText.findById: id must be a non-negative integer.');
+        }
+
+        try {
+            // Simulate an asynchronous database call (e.g., network latency)
+            await new Promise(resolve => setTimeout(resolve, 50));
+
+            const foundData = FilmText.#inMemoryStore.find(film => film.filmId === id);
+            return foundData ? new FilmText(foundData.filmId, foundData.title, foundData.description) : null;
+        } catch (error) {
+            console.error(`FilmText.findById: Error fetching film with ID ${id}:`, error);
+            throw new Error(`Failed to retrieve film by ID ${id}. Details: ${error.message}`);
+        }
+    }
+
+    /**
+     * Simulates finding all FilmText entities.
+     * @returns {Promise<FilmText[]>} A promise that resolves with an array of all FilmText objects.
+     * @throws {Error} If a simulated database error occurs.
+     */
+    static async findAll() {
+        try {
+            // Simulate an asynchronous database call
+            await new Promise(resolve => setTimeout(resolve, 100));
+
+            return FilmText.#inMemoryStore.map(filmData => new FilmText(filmData.filmId, filmData.title, filmData.description));
+        } catch (error) {
+            console.error('FilmText.findAll: Error fetching all films:', error);
+            throw new Error(`Failed to retrieve all films. Details: ${error.message}`);
+        }
+    }
+
+    /**
+     * Simulates saving a FilmText entity to the database.
+     * If an entity with the same `filmId` already exists, it updates it. Otherwise, it creates a new one.
+     * This method conceptually combines Java's `persist` and `merge` operations.
+     * @returns {Promise<FilmText>} A promise that resolves with the saved/updated FilmText object.
+     * @throws {Error} If the object's data is invalid or a simulated database error occurs.
+     */
+    async save() {
+        try {
+            // Basic validation before attempting to save
+            if (typeof this._filmId !== 'number' || !Number.isInteger(this._filmId) || this._filmId < 0) {
+                throw new Error('FilmText.save: Invalid filmId for saving.');
+            }
+            if (typeof this._title !== 'string' || this._title.trim() === '') {
+                throw new Error('FilmText.save: Invalid title for saving.');
+            }
+            if (typeof this._description !== 'string' || this._description.trim() === '') {
+                throw new Error('FilmText.save: Invalid description for saving.');
+            }
+
+            // Simulate an asynchronous database call
+            await new Promise(resolve => setTimeout(resolve, 75));
+
+            const existingIndex = FilmText.#inMemoryStore.findIndex(film => film.filmId === this._filmId);
+
+            if (existingIndex !== -1) {
+                // Update existing record
+                FilmText.#inMemoryStore[existingIndex] = this.toJSON(); // Store a plain object copy
+                console.log(`FilmText.save: Updated film with ID ${this._filmId}`);
+            } else {
+                // Create new record
+                FilmText.#inMemoryStore.push(this.toJSON()); // Store a plain object copy
+                console.log(`FilmText.save: Created new film with ID ${this._filmId}`);
+            }
+            // Return a new instance to reflect the saved state (common ORM pattern)
+            return new FilmText(this._filmId, this._title, this._description);
+        } catch (error) {
+            console.error(`FilmText.save: Error saving film with ID ${this._filmId}:`, error);
+            throw new Error(`Failed to save film. Details: ${error.message}`);
+        }
+    }
+
+    /**
+     * Simulates updating an existing FilmText entity in the database.
+     * This method assumes the entity already exists and will throw an error if not found.
+     * @returns {Promise<FilmText>} A promise that resolves with the updated FilmText object.
+     * @throws {Error} If the entity does not exist, its data is invalid, or a simulated database error occurs.
+     */
+    async update() {
+        try {
+            // Basic validation before attempting to update
+            if (typeof this._filmId !== 'number' || !Number.isInteger(this._filmId) || this._filmId < 0) {
+                throw new Error('FilmText.update: Invalid filmId for updating.');
+            }
+            // Simulate an asynchronous database call
+            await new Promise(resolve => setTimeout(resolve, 75));
+
+            const existingIndex = FilmText.#inMemoryStore.findIndex(film => film.filmId === this._filmId);
+
+            if (existingIndex !== -1) {
+                FilmText.#inMemoryStore[existingIndex] = this.toJSON(); // Store a plain object copy
+                console.log(`FilmText.update: Updated film with ID ${this._filmId}`);
+                return new FilmText(this._filmId, this._title, this._description);
+            } else {
+                throw new Error(`FilmText.update: Film with ID ${this._filmId} not found for update.`);
+            }
+        } catch (error) {
+            console.error(`FilmText.update: Error updating film with ID ${this._filmId}:`, error);
+            throw new Error(`Failed to update film. Details: ${error.message}`);
+        }
+    }
+
+    /**
+     * Simulates deleting a FilmText entity from the database.
+     * @returns {Promise<boolean>} A promise that resolves to `true` if the deletion was successful (record found and removed), `false` otherwise (record not found).
+     * @throws {Error} If the object's `filmId` is invalid or a simulated database error occurs.
+     */
+    async delete() {
+        try {
+            // Basic validation before attempting to delete
+            if (typeof this._filmId !== 'number' || !Number.isInteger(this._filmId) || this._filmId < 0) {
+                throw new Error('FilmText.delete: Invalid filmId for deletion.');
+            }
+
+            // Simulate an asynchronous database call
+            await new Promise(resolve => setTimeout(resolve, 60));
+
+            const initialLength = FilmText.#inMemoryStore.length;
+            FilmText.#inMemoryStore = FilmText.#inMemoryStore.filter(film => film.filmId !== this._filmId);
+
+            if (FilmText.#inMemoryStore.length < initialLength) {
+                console.log(`FilmText.delete: Deleted film with ID ${this._filmId}`);
+                return true;
+            } else {
+                console.warn(`FilmText.delete: Film with ID ${this._filmId} not found for deletion.`);
+                return false;
+            }
+        } catch (error) {
+            console.error(`FilmText.delete: Error deleting film with ID ${this._filmId}:`, error);
+            throw new Error(`Failed to delete film. Details: ${error.message}`);
+        }
+    }
 }
 
 module.exports = FilmText;
-```

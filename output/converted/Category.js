@@ -1,58 +1,91 @@
-```javascript
 /**
  * @file Category.js
- * @description Represents a Category entity, mapping directly to a database table.
- * This class serves as a persistent entity for managing category data,
- * translated from a Java JPA Entity.
+ * @description Represents a Category entity, mapping to a 'category' table in a relational database.
+ * This class serves as a data model for Object-Relational Mapping (ORM) in a Node.js application,
+ * similar to a JPA Entity in Java. It encapsulates category data and provides methods for
+ * access, modification, and comparison, adhering to ES6 class syntax and Node.js best practices.
  */
 
 /**
  * Represents a Category entity.
- * This class encapsulates category data, providing controlled access through
- * getters and setters, and defines logical equality for Category objects.
- * It's designed to be a Plain Old JavaScript Object (POJO) with persistence
- * concerns (like primary key, column mapping) indicated via JSDoc,
- * mirroring its Java JPA Entity origin.
+ * This class models a 'category' table in a relational database. It provides a structured
+ * way to interact with category data, including properties for category identification,
+ * name, and last update timestamp. It adheres to the JavaBean pattern with private-like
+ * fields accessed via public getters and setters, and includes robust equality checking.
+ *
+ * In a full ORM context (e.g., using Sequelize or TypeORM), this class would typically
+ * be decorated with ORM-specific annotations or configurations to define its mapping
+ * to the database table and columns. The JSDoc comments indicate these conceptual mappings.
+ *
+ * @class
+ * @property {number} categoryId - The unique identifier for the category (Primary Key).
+ * @property {string} name - The name of the category.
+ * @property {Date} lastUpdate - The timestamp of the last update to the category record.
  */
 class Category {
     /**
-     * @private
-     * @type {number}
-     * @description The unique identifier for the category. Corresponds to JPA's @Id and @Column(name = "category_id").
-     */
-    _categoryId;
-
-    /**
-     * @private
-     * @type {string}
-     * @description The name of the category. Corresponds to JPA's @Column(name = "name").
-     */
-    _name;
-
-    /**
-     * @private
-     * @type {Date}
-     * @description The timestamp of the last update for the category. Corresponds to JPA's @Column(name = "last_update").
-     */
-    _lastUpdate;
-
-    /**
      * Creates an instance of Category.
-     * @param {number} categoryId - The unique identifier for the category.
-     * @param {string} name - The name of the category.
-     * @param {Date|string} lastUpdate - The timestamp of the last update for the category. Can be a Date object or a string parseable by Date.
-     * @throws {Error} If any initial property is invalid.
+     *
+     * @constructor
+     * @param {object} params - An object containing category properties.
+     * @param {number} params.categoryId - The unique identifier for the category. Must be a positive integer.
+     * @param {string} params.name - The name of the category. Must be a non-empty string.
+     * @param {Date|string} params.lastUpdate - The timestamp of the last update. Can be a Date object or a string parseable by `new Date()`.
+     * @throws {Error} If `categoryId` is not a valid positive integer.
+     * @throws {Error} If `name` is not a valid non-empty string.
+     * @throws {Error} If `lastUpdate` is not a valid Date object or a parseable date string.
      */
-    constructor(categoryId, name, lastUpdate) {
-        // Initialize properties using setters for validation
-        this.setCategoryId(categoryId);
-        this.setName(name);
-        this.setLastUpdate(lastUpdate);
+    constructor({ categoryId, name, lastUpdate }) {
+        // Validate and set categoryId
+        if (typeof categoryId !== 'number' || !Number.isInteger(categoryId) || categoryId <= 0) {
+            throw new Error(`CategoryError: Invalid categoryId '${categoryId}'. Must be a positive integer.`);
+        }
+        /**
+         * The unique identifier for the category.
+         * Mapped to `category_id` column in the database (Primary Key).
+         * @private
+         * @type {number}
+         */
+        this._categoryId = categoryId;
+
+        // Validate and set name
+        if (typeof name !== 'string' || name.trim().length === 0) {
+            throw new Error(`CategoryError: Invalid name '${name}'. Must be a non-empty string.`);
+        }
+        /**
+         * The name of the category.
+         * Mapped to `name` column in the database.
+         * @private
+         * @type {string}
+         */
+        this._name = name.trim();
+
+        // Validate and set lastUpdate
+        let parsedLastUpdate;
+        if (lastUpdate instanceof Date) {
+            parsedLastUpdate = lastUpdate;
+        } else if (typeof lastUpdate === 'string') {
+            parsedLastUpdate = new Date(lastUpdate);
+        } else {
+            throw new Error(`CategoryError: Invalid lastUpdate type '${typeof lastUpdate}'. Must be a Date object or a valid date string.`);
+        }
+
+        if (isNaN(parsedLastUpdate.getTime())) {
+            throw new Error(`CategoryError: Could not parse lastUpdate date from '${lastUpdate}'.`);
+        }
+        /**
+         * The timestamp of the last update to the category record.
+         * Mapped to `last_update` column in the database.
+         * @private
+         * @type {Date}
+         */
+        this._lastUpdate = parsedLastUpdate;
     }
 
     /**
      * Gets the category ID.
-     * @returns {number} The category ID.
+     * Mapped to `category_id` column (Primary Key).
+     * @returns {number} The unique identifier of the category.
      */
     get categoryId() {
         return this._categoryId;
@@ -60,18 +93,19 @@ class Category {
 
     /**
      * Sets the category ID.
-     * @param {number} value - The new category ID.
-     * @throws {Error} If the category ID is not a valid positive integer.
+     * @param {number} newCategoryId - The new unique identifier for the category.
+     * @throws {Error} If `newCategoryId` is not a valid positive integer.
      */
-    set categoryId(value) {
-        if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
-            throw new Error('Category ID must be a positive integer.');
+    set categoryId(newCategoryId) {
+        if (typeof newCategoryId !== 'number' || !Number.isInteger(newCategoryId) || newCategoryId <= 0) {
+            throw new Error(`CategoryError: Invalid categoryId '${newCategoryId}'. Must be a positive integer.`);
         }
-        this._categoryId = value;
+        this._categoryId = newCategoryId;
     }
 
     /**
-     * Gets the name of the category.
+     * Gets the category name.
+     * Mapped to `name` column.
      * @returns {string} The name of the category.
      */
     get name() {
@@ -79,20 +113,21 @@ class Category {
     }
 
     /**
-     * Sets the name of the category.
-     * @param {string} value - The new name for the category.
-     * @throws {Error} If the name is not a non-empty string.
+     * Sets the category name.
+     * @param {string} newName - The new name for the category.
+     * @throws {Error} If `newName` is not a valid non-empty string.
      */
-    set name(value) {
-        if (typeof value !== 'string' || value.trim().length === 0) {
-            throw new Error('Category name must be a non-empty string.');
+    set name(newName) {
+        if (typeof newName !== 'string' || newName.trim().length === 0) {
+            throw new Error(`CategoryError: Invalid name '${newName}'. Must be a non-empty string.`);
         }
-        this._name = value.trim();
+        this._name = newName.trim();
     }
 
     /**
      * Gets the last update timestamp.
-     * @returns {Date} The last update timestamp.
+     * Mapped to `last_update` column.
+     * @returns {Date} The timestamp indicating when the category record was last updated.
      */
     get lastUpdate() {
         return this._lastUpdate;
@@ -100,209 +135,181 @@ class Category {
 
     /**
      * Sets the last update timestamp.
-     * @param {Date|string} value - The new last update timestamp. Can be a Date object or a string parseable by Date.
-     * @throws {Error} If the value is not a valid Date object or a string that can be parsed into a valid Date.
+     * @param {Date|string} newLastUpdate - The new timestamp for the last update. Can be a Date object or a string parseable by `new Date()`.
+     * @throws {Error} If `newLastUpdate` is not a valid Date object or a parseable date string.
      */
-    set lastUpdate(value) {
-        let dateValue;
-        if (value instanceof Date) {
-            dateValue = value;
-        } else if (typeof value === 'string') {
-            dateValue = new Date(value);
+    set lastUpdate(newLastUpdate) {
+        let parsedLastUpdate;
+        if (newLastUpdate instanceof Date) {
+            parsedLastUpdate = newLastUpdate;
+        } else if (typeof newLastUpdate === 'string') {
+            parsedLastUpdate = new Date(newLastUpdate);
         } else {
-            throw new Error('Last update must be a Date object or a valid date string.');
+            throw new Error(`CategoryError: Invalid lastUpdate type '${typeof newLastUpdate}'. Must be a Date object or a valid date string.`);
         }
 
-        if (isNaN(dateValue.getTime())) {
-            throw new Error('Invalid date provided for lastUpdate.');
+        if (isNaN(parsedLastUpdate.getTime())) {
+            throw new Error(`CategoryError: Could not parse lastUpdate date from '${newLastUpdate}'.`);
         }
-        this._lastUpdate = dateValue;
+        this._lastUpdate = parsedLastUpdate;
     }
 
     /**
-     * Determines whether this Category object is logically equal to another object.
-     * Two Category objects are considered equal if their `categoryId`, `name`, and `lastUpdate` are identical.
-     * This method mirrors the `equals()` contract from Java.
-     * @param {Object} other - The object to compare with.
-     * @returns {boolean} True if the objects are equal, false otherwise.
+     * Checks if this Category object is logically equal to another object.
+     * Two `Category` objects are considered equal if their `categoryId`, `name`,
+     * and `lastUpdate` values are identical. This method provides the same
+     * logical equality as Java's `equals()` method.
+     *
+     * @param {object} other - The object to compare with.
+     * @returns {boolean} `true` if the objects are logically equal, `false` otherwise.
      */
     equals(other) {
         if (this === other) {
-            return true;
+            return true; // Same instance
         }
-        // Check if 'other' is null, not an object, or not an instance of Category
-        if (other === null || typeof other !== 'object' || !(other instanceof Category)) {
-            return false;
-        }
-
-        // Compare primitive types directly
-        if (this._categoryId !== other.categoryId) {
-            return false;
+        if (!(other instanceof Category)) {
+            return false; // Not an instance of Category
         }
 
-        // Compare strings
-        if (this._name !== other.name) {
-            return false;
-        }
-
-        // Compare Date objects (timestamps)
-        // Handle cases where one or both might be null/undefined
-        if (this._lastUpdate && other.lastUpdate) {
-            if (this._lastUpdate.getTime() !== other.lastUpdate.getTime()) {
-                return false;
-            }
-        } else if (this._lastUpdate !== other.lastUpdate) { // One is null/undefined, the other is not
-            return false;
-        }
-
-        return true;
-    }
-
-    /**
-     * Generates a hash code for the Category object.
-     * This method provides a consistent string representation based on the object's key properties,
-     * useful for custom hashing implementations or debugging.
-     * Note: JavaScript's built-in Map/Set use reference equality by default.
-     * This method mirrors the `hashCode()` contract from Java.
-     * @returns {string} A string representation of the object's hash.
-     */
-    hashCode() {
-        // A simple way to create a "hash" string for comparison/identification.
-        // In a real-world scenario for hash-based collections, you might use a library
-        // or a more sophisticated hashing algorithm.
-        const categoryIdPart = this._categoryId;
-        const namePart = this._name;
-        const lastUpdatePart = this._lastUpdate ? this._lastUpdate.toISOString() : 'null';
-
-        // Using a simple string concatenation for hashing.
-        // A more robust hash function might involve a cryptographic hash or a polynomial rolling hash.
-        return `${categoryIdPart}|${namePart}|${lastUpdatePart}`;
+        // Compare properties for logical equality
+        return this._categoryId === other._categoryId &&
+               this._name === other._name &&
+               this._lastUpdate.getTime() === other._lastUpdate.getTime(); // Compare Date objects by their time value
     }
 
     /**
      * Returns a string representation of the Category object.
-     * @returns {string} A string representation of the Category.
+     * This is useful for logging, debugging, and quick inspection of the object's state.
+     *
+     * @returns {string} A string representation of the category, including its ID, name, and last update timestamp.
      */
     toString() {
-        return `Category { id: ${this._categoryId}, name: '${this._name}', lastUpdate: '${this._lastUpdate ? this._lastUpdate.toISOString() : 'null'}' }`;
+        return `Category(id=${this._categoryId}, name='${this._name}', lastUpdate='${this._lastUpdate.toISOString()}')`;
     }
 
     /**
-     * Simulates fetching a Category by its ID from a data source asynchronously.
-     * This is an example of an asynchronous operation that would typically reside in a repository or service layer,
-     * demonstrating the use of `async/await` as requested.
-     * @param {number} id - The ID of the category to fetch.
-     * @returns {Promise<Category|null>} A promise that resolves to a Category object if found, or null if not found.
-     * @throws {Error} If an invalid ID is provided or an error occurs during the simulated fetch operation.
+     * Converts the Category object to a plain JavaScript object.
+     * This is particularly useful for serialization (e.g., to JSON for API responses)
+     * or when passing data to other layers that expect simple data structures.
+     * Dates are converted to ISO 8601 strings for consistent representation.
+     *
+     * @returns {object} A plain object representation of the category's data.
      */
-    static async fetchById(id) {
+    toObject() {
+        return {
+            categoryId: this._categoryId,
+            name: this._name,
+            lastUpdate: this._lastUpdate.toISOString() // Consistent date format
+        };
+    }
+
+    // --- Asynchronous Operations (Conceptual for Database Interaction) ---
+    // The Category class itself is a data model, and its core methods (getters, setters, equals)
+    // are synchronous. Asynchronous operations (like fetching from or saving to a database)
+    // would typically reside in a separate 'Repository' or 'Service' layer that utilizes
+    // this model. However, to demonstrate async/await as requested, conceptual methods
+    // for database interaction are included here.
+
+    /**
+     * Asynchronously fetches a Category from a data source (e.g., database) by its ID.
+     * This is a conceptual static factory method demonstrating asynchronous data retrieval.
+     * In a real application, this would involve actual database queries via an ORM or client.
+     *
+     * @static
+     * @async
+     * @param {number} id - The ID of the category to fetch. Must be a positive integer.
+     * @returns {Promise<Category|null>} A promise that resolves to a `Category` instance if found, otherwise `null`.
+     * @throws {Error} If the provided `id` is invalid or if a database error occurs.
+     */
+    static async findById(id) {
         if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
-            throw new Error('Invalid category ID provided for fetchById: ID must be a positive integer.');
+            throw new Error(`CategoryRepositoryError: Invalid ID '${id}' for findById. Must be a positive integer.`);
         }
 
         try {
-            console.log(`[Category.fetchById] Attempting to fetch category with ID: ${id}`);
-            // Simulate a database call or API request delay
-            await new Promise(resolve => setTimeout(resolve, 150));
+            // Simulate an asynchronous database call (e.g., using a database client or ORM)
+            await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network/DB latency
 
-            // In a real application, this would involve a database query
-            // using an ORM like Sequelize or TypeORM.
-            // For demonstration, we return mock data.
+            // --- Placeholder for actual database interaction ---
+            // Example:
+            // const dbResult = await someDatabaseClient.query('SELECT * FROM category WHERE category_id = ?', [id]);
+            // if (dbResult && dbResult.length > 0) {
+            //     const data = dbResult[0];
+            //     return new Category({
+            //         categoryId: data.category_id,
+            //         name: data.name,
+            //         lastUpdate: data.last_update // Assuming DB returns a Date or parseable string
+            //     });
+            // }
+
+            // Mock data for demonstration
             if (id === 1) {
-                return new Category(1, 'Action', new Date('2023-01-15T10:00:00Z'));
+                return new Category({
+                    categoryId: 1,
+                    name: 'Action',
+                    lastUpdate: '2006-02-15T04:46:27.000Z'
+                });
             } else if (id === 2) {
-                return new Category(2, 'Comedy', new Date('2023-02-20T14:30:00Z'));
-            } else if (id === 3) {
-                return new Category(3, 'Drama', new Date('2023-03-01T08:15:00Z'));
-            } else {
-                console.log(`[Category.fetchById] Category with ID ${id} not found.`);
-                return null; // Category not found
+                return new Category({
+                    categoryId: 2,
+                    name: 'Animation',
+                    lastUpdate: '2006-02-15T04:46:27.000Z'
+                });
             }
+            return null; // Category not found
         } catch (error) {
-            // Log the error and re-throw a more user-friendly error
-            console.error(`[Category.fetchById] Error fetching category with ID ${id}:`, error.message, error.stack);
-            throw new Error(`Failed to fetch category by ID: ${id}. Details: ${error.message}`);
+            console.error(`CategoryRepositoryError: Failed to fetch category with ID ${id}.`, error);
+            throw new Error(`CategoryRepositoryError: Database operation failed for findById(${id}).`);
+        }
+    }
+
+    /**
+     * Asynchronously saves the current Category instance to a data source (e.g., database).
+     * This is a conceptual instance method demonstrating asynchronous data persistence.
+     * It handles both creation (if `categoryId` is not set or is a placeholder) and updates.
+     * In a real application, this would involve actual database INSERT/UPDATE queries.
+     *
+     * @async
+     * @returns {Promise<Category>} A promise that resolves to the saved `Category` instance.
+     *          If it was a new category, its `categoryId` might be updated with the database-generated ID.
+     * @throws {Error} If there's an issue saving the category to the database.
+     */
+    async save() {
+        try {
+            // Simulate an asynchronous database call
+            await new Promise(resolve => setTimeout(resolve, 100)); // Simulate network/DB latency
+
+            // --- Placeholder for actual database interaction ---
+            // Example:
+            // let result;
+            // if (this._categoryId && this._categoryId > 0) {
+            //     // Update existing record
+            //     result = await someDatabaseClient.update('category', {
+            //         name: this._name,
+            //         last_update: new Date() // Update timestamp on save
+            //     }, { category_id: this._categoryId });
+            // } else {
+            //     // Insert new record
+            //     result = await someDatabaseClient.insert('category', {
+            //         name: this._name,
+            //         last_update: new Date()
+            //     });
+            //     this._categoryId = result.insertId; // Assuming DB returns the new ID
+            // }
+
+            // For demonstration, update lastUpdate and log
+            this.lastUpdate = new Date(); // Simulate DB updating the timestamp
+            console.log(`[DB] Successfully saved/updated Category: ${this.toString()}`);
+            return this;
+        } catch (error) {
+            console.error(`CategoryRepositoryError: Failed to save category ${this.toString()}.`, error);
+            throw new Error(`CategoryRepositoryError: Database operation failed for save().`);
         }
     }
 }
 
-// Export the Category class for use in other modules
+/**
+ * Exports the Category class for use in other modules.
+ * @module Category
+ */
 module.exports = Category;
-
-/*
-// Example Usage (for testing purposes, not part of the module export)
-(async () => {
-    try {
-        // Create Category instances
-        const category1 = new Category(1, 'Horror', new Date());
-        const category2 = new Category(2, 'Sci-Fi', '2023-10-26T10:30:00Z');
-        const category3 = new Category(1, 'Horror', new Date()); // Same as category1 for equals test
-        const category4 = new Category(4, 'Thriller', new Date('2023-11-01T12:00:00Z'));
-
-        console.log('--- Category Instances ---');
-        console.log(category1.toString());
-        console.log(category2.toString());
-        console.log(category3.toString());
-        console.log(category4.toString());
-
-        // Test Getters
-        console.log('\n--- Getters ---');
-        console.log(`Category 1 ID: ${category1.categoryId}`);
-        console.log(`Category 2 Name: ${category2.name}`);
-        console.log(`Category 4 Last Update: ${category4.lastUpdate.toISOString()}`);
-
-        // Test Setters with validation
-        console.log('\n--- Setters (with validation) ---');
-        try {
-            category1.setName(''); // Should throw error
-        } catch (e) {
-            console.error(`Setter Error (expected): ${e.message}`);
-        }
-        try {
-            category2.setCategoryId(0); // Should throw error
-        } catch (e) {
-            console.error(`Setter Error (expected): ${e.message}`);
-        }
-        try {
-            category4.setLastUpdate('invalid-date'); // Should throw error
-        } catch (e) {
-            console.error(`Setter Error (expected): ${e.message}`);
-        }
-        category1.setName('Updated Horror');
-        console.log(`Category 1 Name after update: ${category1.name}`);
-
-        // Test equals()
-        console.log('\n--- Equals Method ---');
-        console.log(`category1 equals category3 (same data): ${category1.equals(category3)}`); // Should be true
-        console.log(`category1 equals category2 (different data): ${category1.equals(category2)}`); // Should be false
-        console.log(`category1 equals null: ${category1.equals(null)}`); // Should be false
-        console.log(`category1 equals plain object: ${category1.equals({ categoryId: 1, name: 'Horror', lastUpdate: category1.lastUpdate })}`); // Should be false (not instance of Category)
-
-        // Test hashCode()
-        console.log('\n--- HashCode Method ---');
-        console.log(`category1 hash: ${category1.hashCode()}`);
-        console.log(`category3 hash: ${category3.hashCode()}`);
-        console.log(`category2 hash: ${category2.hashCode()}`);
-        console.log(`Hashes match for equal objects: ${category1.hashCode() === category3.hashCode()}`); // Should be true
-
-        // Test async fetchById
-        console.log('\n--- Async fetchById Method ---');
-        const fetchedCategory1 = await Category.fetchById(1);
-        console.log(`Fetched Category 1: ${fetchedCategory1 ? fetchedCategory1.toString() : 'Not Found'}`);
-
-        const fetchedCategory5 = await Category.fetchById(5);
-        console.log(`Fetched Category 5: ${fetchedCategory5 ? fetchedCategory5.toString() : 'Not Found'}`);
-
-        // Test async fetchById with error handling
-        try {
-            await Category.fetchById(-1); // Invalid ID
-        } catch (e) {
-            console.error(`Async Error (expected): ${e.message}`);
-        }
-
-    } catch (error) {
-        console.error('An unexpected error occurred during example usage:', error);
-    }
-})();
-*/
-```

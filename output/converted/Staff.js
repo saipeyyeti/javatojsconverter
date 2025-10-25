@@ -1,174 +1,192 @@
-```javascript
 /**
  * @file Staff.js
- * @description This file defines the Staff model, a JavaScript ES6 class representing
- * a staff member entity. It mirrors the structure and responsibilities of the
- * original Java JPA entity, designed for data representation and adherence to
- * JavaBeans-like conventions.
- *
- * In a Node.js environment, this class would typically be used in conjunction
- * with an Object-Relational Mapper (ORM) like Sequelize or TypeORM. The ORM
- * would handle the actual persistence mapping (e.g., mapping properties to
- * database columns, defining primary keys, and managing data types) which
- * was handled by JPA annotations in the Java version.
+ * @description This file defines the Staff class, a JavaScript model representing
+ *              a staff member entity, analogous to a JPA Entity in Java.
+ *              It provides data representation, encapsulation, and methods for
+ *              object identity and comparison.
  */
 
+const { Buffer } = require('buffer'); // For handling binary data (picture)
+
 /**
- * Represents a Staff entity, mapping directly to a 'staff' table in a relational database.
- * This class serves as a Plain Old JavaScript Object (POJO) for data representation,
- * adhering to JavaBeans-like conventions with properties and accessors.
+ * Represents a Staff entity from the database.
+ * This class models a staff record, providing data representation,
+ * encapsulation, and methods for object identity and comparison.
  *
- * It includes robust type checking and error handling in setters and the constructor
- * to ensure data integrity, and provides `equals()` and `hashCode()` methods for
- * object comparison, conceptually aligning with Java's object identity principles.
+ * It is the Node.js/JavaScript equivalent of the Java `Staff` JPA Entity,
+ * designed to hold the state of a single staff member.
+ *
+ * @class Staff
+ * @property {number} staffId - The unique identifier for the staff member (primary key, `staff_id`).
+ * @property {string} firstName - The first name of the staff member (`first_name`).
+ * @property {string} lastName - The last name of the staff member (`last_name`).
+ * @property {Buffer | null} picture - Binary data representing the staff member's picture (`picture`).
+ * @property {string | null} email - The email address of the staff member (`email`).
+ * @property {number} active - Indicates if the staff member is active (1 for active, 0 for inactive) (`active`).
+ * @property {string} username - The username for the staff member's account (`username`).
+ * @property {string} password - The password for the staff member's account (`password`).
+ * @property {Date} lastUpdate - The timestamp of the last update to the staff record (`last_update`).
  */
 class Staff {
     /**
-     * @private
-     * @type {number}
-     * The unique identifier for the staff member, corresponding to the 'staff_id' column.
-     * This would typically be the primary key in the database.
-     */
-    #staffId;
-
-    /**
-     * @private
-     * @type {string}
-     * The first name of the staff member, corresponding to the 'first_name' column.
-     */
-    #firstName;
-
-    /**
-     * @private
-     * @type {string}
-     * The last name of the staff member, corresponding to the 'last_name' column.
-     */
-    #lastName;
-
-    /**
-     * @private
-     * @type {Buffer | null}
-     * Binary data representing a picture of the staff member, corresponding to the 'picture' column.
-     * Stored as a Node.js Buffer. Can be null.
-     */
-    #picture;
-
-    /**
-     * @private
-     * @type {string | null}
-     * The email address of the staff member, corresponding to the 'email' column. Can be null.
-     */
-    #email;
-
-    /**
-     * @private
-     * @type {number}
-     * A byte-like value indicating the active status of the staff member (e.g., 0 for inactive, 1 for active).
-     * Corresponds to the 'active' column.
-     */
-    #active;
-
-    /**
-     * @private
-     * @type {string}
-     * The username for the staff member, corresponding to the 'username' column.
-     */
-    #username;
-
-    /**
-     * @private
-     * @type {string}
-     * The password for the staff member, corresponding to the 'password' column.
-     * **Security Note:** In a real application, passwords should never be stored in plain text.
-     * They should be hashed and salted using strong cryptographic functions (e.g., bcrypt)
-     * before being stored in the database. This model reflects the original Java structure
-     * for direct translation purposes.
-     */
-    #password;
-
-    /**
-     * @private
-     * @type {Date | null}
-     * The timestamp of the last update to the staff record, corresponding to the 'last_update' column.
-     * Stored as a JavaScript Date object. Can be null.
-     */
-    #lastUpdate;
-
-    /**
      * Creates an instance of Staff.
-     * Initializes staff properties with provided data, performing type conversions and basic validation.
      *
-     * @param {object} [data={}] - An object containing initial staff data.
-     * @param {number} [data.staffId=0] - The staff's ID. Must be an integer.
-     * @param {string} [data.firstName=''] - The staff's first name. Must be a string.
-     * @param {string} [data.lastName=''] - The staff's last name. Must be a string.
-     * @param {Buffer | Uint8Array | ArrayBuffer | string | null} [data.picture=null] - The staff's picture data.
-     *   Can be a Buffer, Uint8Array, ArrayBuffer, base64 string, or null.
-     * @param {string | null} [data.email=null] - The staff's email. Must be a string or null.
-     * @param {number} [data.active=0] - The staff's active status (0 for inactive, 1 for active). Must be 0 or 1.
-     * @param {string} [data.username=''] - The staff's username. Must be a string.
-     * @param {string} [data.password=''] - The staff's password. Must be a string.
-     * @param {Date | string | number | null} [data.lastUpdate=null] - The timestamp of the last update.
-     *   Can be a Date object, ISO string, numeric timestamp, or null.
-     * @throws {TypeError} If any provided data is of an invalid type or format.
+     * @param {object} params - Object containing staff properties.
+     * @param {number} params.staffId - The unique identifier for the staff member. Must be a positive integer.
+     * @param {string} params.firstName - The first name of the staff member. Must be a non-empty string.
+     * @param {string} params.lastName - The last name of the staff member. Must be a non-empty string.
+     * @param {Buffer | null} [params.picture=null] - Binary data for the staff member's picture. Must be a Buffer or null.
+     * @param {string | null} [params.email=null] - The email address of the staff member. Must be a valid email string or null.
+     * @param {number} params.active - Indicates if the staff member is active (1 for active, 0 for inactive). Must be 0 or 1.
+     * @param {string} params.username - The username for the staff member's account. Must be a non-empty string.
+     * @param {string} params.password - The password for the staff member's account. Must be a non-empty string.
+     * @param {Date | string | number} params.lastUpdate - The timestamp of the last update. Can be a Date object, ISO string, or Unix timestamp.
+     * @throws {Error} If any required parameter is missing or invalid, or if types do not match.
      */
-    constructor(data = {}) {
-        try {
-            this.staffId = data.staffId ?? 0;
-            this.firstName = data.firstName ?? '';
-            this.lastName = data.lastName ?? '';
-            this.picture = data.picture ?? null; // Use setter for conversion and validation
-            this.email = data.email ?? null;
-            this.active = data.active ?? 0;
-            this.username = data.username ?? '';
-            this.password = data.password ?? '';
-            this.lastUpdate = data.lastUpdate ?? null; // Use setter for conversion and validation
-        } catch (error) {
-            // Re-throw with context for easier debugging
-            throw new TypeError(`Failed to construct Staff object: ${error.message}`);
+    constructor({
+        staffId,
+        firstName,
+        lastName,
+        picture = null,
+        email = null,
+        active,
+        username,
+        password,
+        lastUpdate
+    }) {
+        // --- Input Validation ---
+        if (typeof staffId !== 'number' || !Number.isInteger(staffId) || staffId <= 0) {
+            throw new Error('Invalid Staff ID: Must be a positive integer.');
         }
+        if (typeof firstName !== 'string' || firstName.trim() === '') {
+            throw new Error('Invalid First Name: Must be a non-empty string.');
+        }
+        if (typeof lastName !== 'string' || lastName.trim() === '') {
+            throw new Error('Invalid Last Name: Must be a non-empty string.');
+        }
+        if (picture !== null && !(picture instanceof Buffer)) {
+            throw new Error('Invalid Picture: Must be a Buffer object or null.');
+        }
+        if (email !== null && (typeof email !== 'string' || !email.includes('@'))) {
+            // Basic email validation; more robust validation might be in a service layer.
+            throw new Error('Invalid Email: Must be a valid email string or null.');
+        }
+        if (typeof active !== 'number' || ![0, 1].includes(active)) {
+            throw new Error('Invalid Active Status: Must be 0 or 1.');
+        }
+        if (typeof username !== 'string' || username.trim() === '') {
+            throw new Error('Invalid Username: Must be a non-empty string.');
+        }
+        if (typeof password !== 'string' || password.trim() === '') {
+            throw new Error('Invalid Password: Must be a non-empty string.');
+        }
+
+        let parsedLastUpdate;
+        if (lastUpdate instanceof Date) {
+            parsedLastUpdate = lastUpdate;
+        } else if (typeof lastUpdate === 'string' || typeof lastUpdate === 'number') {
+            parsedLastUpdate = new Date(lastUpdate);
+            if (isNaN(parsedLastUpdate.getTime())) {
+                throw new Error('Invalid Last Update: Must be a valid Date, ISO string, or Unix timestamp.');
+            }
+        } else {
+            throw new Error('Invalid Last Update: Must be a Date object, string, or number.');
+        }
+
+        // --- Assign Properties ---
+        this.staffId = staffId;
+        this.firstName = firstName;
+        this.lastName = lastName;
+        this.picture = picture;
+        this.email = email;
+        this.active = active;
+        this.username = username;
+        this.password = password;
+        this.lastUpdate = parsedLastUpdate;
     }
 
     /**
-     * Helper method to convert various picture inputs to a Buffer.
-     * @private
-     * @param {Buffer | Uint8Array | ArrayBuffer | string | null} pictureInput - The picture data.
-     * @returns {Buffer | null} The picture data as a Buffer, or null.
-     * @throws {TypeError} If the picture input is of an unsupported type or an invalid base64 string.
+     * Compares this Staff object with another object for equality.
+     * Two Staff objects are considered equal if all their corresponding fields are equal.
+     * This method is analogous to the `equals()` method in the Java class, ensuring
+     * value-based equality for data models.
+     *
+     * @param {object} o - The object to compare with.
+     * @returns {boolean} True if the objects are equal, false otherwise.
      */
-    #convertToBuffer(pictureInput) {
-        if (pictureInput === null || pictureInput === undefined) {
-            return null;
-        }
-        if (pictureInput instanceof Buffer) {
-            return pictureInput;
-        }
-        if (pictureInput instanceof Uint8Array || pictureInput instanceof ArrayBuffer) {
-            return Buffer.from(pictureInput);
-        }
-        if (typeof pictureInput === 'string') {
-            // Assuming base64 encoded string if it's a string
-            try {
-                return Buffer.from(pictureInput, 'base64');
-            } catch (e) {
-                throw new TypeError('Invalid base64 string for picture data.');
+    equals(o) {
+        // 1. Reference equality check
+        if (this === o) return true;
+
+        // 2. Type and null/undefined check
+        if (o === null || typeof o !== 'object' || o.constructor !== Staff) return false;
+
+        // Conceptually "cast" to Staff for property access
+        /** @type {Staff} */
+        const staff = o;
+
+        // 3. Compare primitive and string fields
+        if (this.staffId !== staff.staffId) return false;
+        if (this.active !== staff.active) return false;
+        if (this.firstName !== staff.firstName) return false;
+        if (this.lastName !== staff.lastName) return false;
+        if (this.email !== staff.email) return false; // Handles null/undefined correctly
+        if (this.username !== staff.username) return false;
+        if (this.password !== staff.password) return false;
+
+        // 4. Compare Buffer (byte[]) field
+        // Check if both are null/undefined or if they are different Buffer objects
+        if (this.picture !== staff.picture) {
+            // If one is null and the other isn't, they are not equal
+            if (this.picture === null || staff.picture === null) return false;
+            // If both are not null, compare their content
+            if (!Buffer.isBuffer(this.picture) || !Buffer.isBuffer(staff.picture) || Buffer.compare(this.picture, staff.picture) !== 0) {
+                return false;
             }
         }
-        throw new TypeError('Unsupported type for picture data. Expected Buffer, Uint8Array, ArrayBuffer, string (base64), or null.');
+
+        // 5. Compare Date (Timestamp) field
+        // Check if both are null/undefined or if they are different Date objects
+        if (this.lastUpdate !== staff.lastUpdate) {
+            // If one is null and the other isn't, they are not equal
+            if (this.lastUpdate === null || staff.lastUpdate === null) return false;
+            // If both are not null, compare their time values
+            if (!(this.lastUpdate instanceof Date) || !(staff.lastUpdate instanceof Date) || this.lastUpdate.getTime() !== staff.lastUpdate.getTime()) {
+                return false;
+            }
+        }
+
+        // If all comparisons pass, the objects are equal
+        return true;
     }
 
     /**
-     * Helper method to convert various date inputs to a Date object.
-     * @private
-     * @param {Date | string | number | null} dateInput - The date data.
-     * @returns {Date | null} The date data as a Date object, or null.
-     * @throws {TypeError} If the date input is of an unsupported type or represents an invalid date.
+     * Generates a string representation of the Staff object.
+     * This method is useful for debugging and logging purposes.
+     *
+     * @returns {string} A string representation of the Staff object's key properties.
      */
-    #convertToDate(dateInput) {
-        if (dateInput === null || dateInput === undefined) {
-            return null;
-        }
-        if (dateInput instanceof Date) {
-            return dateInput;
-        }
-        if (typeof dateInput === 'string' || typeof dateInput === 'number') {
+    toString() {
+        const lastUpdateStr = this.lastUpdate ? this.lastUpdate.toISOString() : 'null';
+        const pictureStatus = this.picture ? `[Buffer, length=${this.picture.length}]` : 'null';
+        return `Staff(staffId=${this.staffId}, firstName='${this.firstName}', lastName='${this.lastName}', ` +
+               `email='${this.email}', active=${this.active}, username='${this.username}', ` +
+               `picture=${pictureStatus}, lastUpdate=${lastUpdateStr})`;
+    }
+
+    // --- Note on hashCode() ---
+    // JavaScript objects do not have a built-in `hashCode()` method like Java.
+    // In JavaScript, object equality for built-in collections like `Map` and `Set`
+    // is based on reference equality by default (i.e., `obj1 === obj2`).
+    //
+    // If value-based hashing is required for custom collections or specific use cases
+    // (e.g., to implement a custom Set or Map that uses value equality), a custom
+    // hashing function would need to be implemented externally or by generating a
+    // unique string representation of the object's state.
+    //
+    // For a direct translation of the data model, `hashCode` is omitted as it
+    // doesn't have a direct, idiomatic equivalent in standard JavaScript for this purpose.
+    // The `equals` method provides the necessary value comparison logic.
+}
+
+module.exports = Staff;

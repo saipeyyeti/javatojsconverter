@@ -1,200 +1,211 @@
-```javascript
 /**
  * @file FilmCategoryPK.js
- * @description This module defines the FilmCategoryPK class, a utility for representing composite primary keys
- *              in a Node.js application. It is analogous to its Java JPA counterpart, encapsulating
- *              `filmId` and `categoryId` and providing robust equality and a unique string representation.
- *              This class serves as a Value Object, crucial for identifying unique combinations of film and category.
+ * @description Represents a composite primary key for the FilmCategory entity,
+ *              encapsulating filmId and categoryId. This class provides value
+ *              object behavior with proper equality and hashing mechanisms.
+ *              It is designed to be a data holder for unique identifiers
+ *              in a persistence layer, similar to its Java counterpart.
+ *
+ *              This module exports the FilmCategoryPK class, adhering to the
+ *              "collection of utility functions framework" by providing a
+ *              well-defined, reusable data structure.
  */
 
 /**
- * Represents a composite primary key for a FilmCategory entity.
+ * @class FilmCategoryPK
+ * @description Represents a composite primary key for the FilmCategory entity.
+ *              This class encapsulates the `filmId` and `categoryId` that together
+ *              form a unique identifier for a record in a `film_category` join table.
  *
- * This class is designed as a Value Object, meaning its identity is based purely on the
- * values of its attributes (`filmId`, `categoryId`), not on its memory address.
- * Two `FilmCategoryPK` instances are considered equal if their component values are identical.
+ *              It provides value object behavior by implementing `equals()` and
+ *              `getHash()` methods, which are essential for comparing and
+ *              identifying unique key instances.
  *
- * It provides methods for equality comparison (`equals`) and a unique string representation
- * (`toUniqueString`) suitable for use as keys in JavaScript `Map`s or `Set`s when value-based
- * equality is desired.
+ *              In a Node.js/JavaScript environment, this class would typically
+ *              be used to represent the unique identifier when interacting with
+ *              an ORM or database layer, where the combination of `filmId` and
+ *              `categoryId` is the primary key.
  *
- * @example
- * const pk1 = new FilmCategoryPK(1, 5);
- * const pk2 = new FilmCategoryPK(1, 5);
- * const pk3 = new FilmCategoryPK(2, 5);
+ *              **Note on JPA Annotations:** The original Java class used `@Column`
+ *              and `@Id` annotations for JPA mapping. These are Java-specific
+ *              and have no direct equivalent in standard JavaScript. In a Node.js
+ *              application using an ORM (e.g., Sequelize, TypeORM), the mapping
+ *              would be defined separately in the ORM's schema configuration
+ *              or using decorators (in TypeScript). This JavaScript class focuses
+ *              solely on the data holding and value object behavior.
  *
- * console.log(pk1.equals(pk2)); // true
- * console.log(pk1.equals(pk3)); // false
- * console.log(pk1.toUniqueString()); // "1-5"
+ *              **Note on Asynchronous Operations:** The original Java class is
+ *              a synchronous data holder. There are no inherent asynchronous
+ *              operations within the responsibilities of a composite primary key
+ *              class itself. Therefore, `async/await` is not applicable to
+ *              the methods of this class. Any asynchronous database interactions
+ *              would occur in a separate service or repository layer that
+ *              utilizes instances of this class.
  */
 class FilmCategoryPK {
     /**
+     * The ID of the film.
+     * @type {number}
+     * @private
+     */
+    #filmId;
+
+    /**
+     * The ID of the category.
+     * @type {number}
+     * @private
+     */
+    #categoryId;
+
+    /**
      * Creates an instance of FilmCategoryPK.
-     *
-     * @param {number} filmId - The ID of the film, which is the first component of the composite key.
-     *                          Must be an integer.
-     * @param {number} categoryId - The ID of the category, which is the second component of the composite key.
-     *                              Must be an integer.
-     * @throws {TypeError} If `filmId` or `categoryId` are not valid integers.
+     * @param {number} filmId - The ID of the film. Must be a non-negative integer.
+     * @param {number} categoryId - The ID of the category. Must be a non-negative integer.
+     * @throws {Error} If `filmId` or `categoryId` are not valid non-negative integers.
      */
     constructor(filmId, categoryId) {
-        if (typeof filmId !== 'number' || !Number.isInteger(filmId)) {
-            throw new TypeError('FilmCategoryPK: filmId must be an integer.');
+        if (!Number.isInteger(filmId) || filmId < 0) {
+            throw new Error(`FilmCategoryPKError: Invalid filmId '${filmId}'. Must be a non-negative integer.`);
         }
-        if (typeof categoryId !== 'number' || !Number.isInteger(categoryId)) {
-            throw new TypeError('FilmCategoryPK: categoryId must be an integer.');
+        if (!Number.isInteger(categoryId) || categoryId < 0) {
+            throw new Error(`FilmCategoryPKError: Invalid categoryId '${categoryId}'. Must be a non-negative integer.`);
         }
 
-        /**
-         * The ID of the film.
-         * @type {number}
-         * @private
-         */
-        this._filmId = filmId;
-
-        /**
-         * The ID of the category.
-         * @type {number}
-         * @private
-         */
-        this._categoryId = categoryId;
+        this.#filmId = filmId;
+        this.#categoryId = categoryId;
     }
 
     /**
-     * Gets the film ID.
+     * Gets the film ID component of the composite key.
      * @returns {number} The film ID.
      */
     get filmId() {
-        return this._filmId;
+        return this.#filmId;
     }
 
     /**
-     * Sets the film ID.
-     * @param {number} newFilmId - The new film ID. Must be an integer.
-     * @throws {TypeError} If `newFilmId` is not a valid integer.
+     * Sets the film ID component of the composite key.
+     * @param {number} newFilmId - The new film ID. Must be a non-negative integer.
+     * @throws {Error} If `newFilmId` is not a valid non-negative integer.
      */
     set filmId(newFilmId) {
-        if (typeof newFilmId !== 'number' || !Number.isInteger(newFilmId)) {
-            throw new TypeError('FilmCategoryPK: filmId must be an integer.');
+        if (!Number.isInteger(newFilmId) || newFilmId < 0) {
+            throw new Error(`FilmCategoryPKError: Invalid filmId '${newFilmId}'. Must be a non-negative integer.`);
         }
-        this._filmId = newFilmId;
+        this.#filmId = newFilmId;
     }
 
     /**
-     * Gets the category ID.
+     * Gets the category ID component of the composite key.
      * @returns {number} The category ID.
      */
     get categoryId() {
-        return this._categoryId;
+        return this.#categoryId;
     }
 
     /**
-     * Sets the category ID.
-     * @param {number} newCategoryId - The new category ID. Must be an integer.
-     * @throws {TypeError} If `newCategoryId` is not a valid integer.
+     * Sets the category ID component of the composite key.
+     * @param {number} newCategoryId - The new category ID. Must be a non-negative integer.
+     * @throws {Error} If `newCategoryId` is not a valid non-negative integer.
      */
     set categoryId(newCategoryId) {
-        if (typeof newCategoryId !== 'number' || !Number.isInteger(newCategoryId)) {
-            throw new TypeError('FilmCategoryPK: categoryId must be an integer.');
+        if (!Number.isInteger(newCategoryId) || newCategoryId < 0) {
+            throw new Error(`FilmCategoryPKError: Invalid categoryId '${newCategoryId}'. Must be a non-negative integer.`);
         }
-        this._categoryId = newCategoryId;
+        this.#categoryId = newCategoryId;
     }
 
     /**
      * Compares this `FilmCategoryPK` instance with another object for equality.
+     * Two `FilmCategoryPK` instances are considered equal if they are of the same class
+     * and their `filmId` and `categoryId` values are identical.
      *
-     * Two `FilmCategoryPK` instances are considered equal if their `filmId` and `categoryId`
-     * values are identical. This method is fundamental for proper functioning in collections
-     * (e.g., `Map`, `Set`) when custom comparison logic is required, mimicking Java's `equals()` behavior.
-     *
-     * @param {Object} other - The object to compare with.
-     * @returns {boolean} `true` if the objects are equal (i.e., have the same `filmId` and `categoryId`),
-     *                    `false` otherwise.
+     * @param {any} other - The object to compare with.
+     * @returns {boolean} `true` if the objects are equal, `false` otherwise.
      */
     equals(other) {
-        // If it's the exact same object reference, they are equal.
+        // Check for reference equality first for performance
         if (this === other) {
             return true;
         }
-        // If the other object is null, not an object, or not an instance of FilmCategoryPK, they are not equal.
-        if (other === null || typeof other !== 'object' || other.constructor !== FilmCategoryPK) {
+
+        // Check if the other object is null, not an object, or not an instance of FilmCategoryPK
+        if (other === null || typeof other !== 'object' || !(other instanceof FilmCategoryPK)) {
             return false;
         }
-        // Compare the values of the composite key components.
-        return this._filmId === other._filmId &&
-               this._categoryId === other._categoryId;
+
+        // Compare the internal values
+        return this.#filmId === other.#filmId &&
+               this.#categoryId === other.#categoryId;
     }
 
     /**
-     * Generates a unique string representation of this composite key.
+     * Generates a string representation of the composite key that can be used
+     * as a hash code or a unique identifier in hash-based collections (e.g., `Map` keys, `Set` elements).
+     * This method ensures consistency with the `equals()` method: if two objects
+     * are equal according to `equals()`, their `getHash()` must return the same string.
      *
-     * This method serves a similar purpose to Java's `hashCode()` for value objects:
-     * it provides a consistent string that uniquely identifies the object based on its values.
-     * This string can be effectively used as a key in JavaScript `Map`s or `Set`s to enable
-     * value-based equality for keys, overcoming JavaScript's default reference equality for objects.
+     * The format is typically "filmId-categoryId".
      *
-     * The format is `filmId-categoryId`.
-     *
-     * @returns {string} A unique string representing the composite key (e.g., "1-5").
+     * @returns {string} A unique string hash for this composite key.
      */
-    toUniqueString() {
-        // A simple, yet effective way to create a unique string for two integers.
-        // The hyphen separator ensures distinctness if IDs could potentially be concatenated
-        // in a way that creates ambiguity (e.g., 1 and 23 vs 12 and 3).
-        return `${this._filmId}-${this._categoryId}`;
+    getHash() {
+        // A simple string concatenation is a common and effective way to create
+        // a unique hash for composite keys in JavaScript, suitable for Map/Set keys.
+        return `${this.#filmId}-${this.#categoryId}`;
     }
 
     /**
      * Returns a string representation of the `FilmCategoryPK` object.
-     * Useful for debugging and logging.
-     *
-     * @returns {string} A string in the format "FilmCategoryPK(filmId=X, categoryId=Y)".
+     * Useful for logging and debugging.
+     * @returns {string} A string in the format "FilmCategoryPK(filmId:X, categoryId:Y)".
      */
     toString() {
-        return `FilmCategoryPK(filmId=${this._filmId}, categoryId=${this._categoryId})`;
+        return `FilmCategoryPK(filmId:${this.#filmId}, categoryId:${this.#categoryId})`;
     }
 
     /**
-     * Converts the `FilmCategoryPK` instance to a plain JavaScript object.
-     * This method is automatically called by `JSON.stringify()` when serializing the object,
-     * making it suitable for API responses or data storage.
-     *
-     * @returns {{filmId: number, categoryId: number}} A plain object representation of the key.
+     * Converts the `FilmCategoryPK` object to a plain JavaScript object.
+     * This method is automatically called by `JSON.stringify()` when serializing
+     * an instance of `FilmCategoryPK` to JSON.
+     * @returns {object} A plain object with `filmId` and `categoryId` properties.
      */
     toJSON() {
         return {
-            filmId: this._filmId,
-            categoryId: this._categoryId
+            filmId: this.#filmId,
+            categoryId: this.#categoryId
         };
+    }
+
+    /**
+     * Static factory method to create a `FilmCategoryPK` instance from a plain object.
+     * This is useful for deserialization (e.g., when receiving data from a JSON payload).
+     *
+     * @param {object} data - A plain object containing `filmId` and `categoryId`.
+     * @param {number} data.filmId - The film ID.
+     * @param {number} data.categoryId - The category ID.
+     * @returns {FilmCategoryPK} A new `FilmCategoryPK` instance.
+     * @throws {Error} If `data` is not an object, is null, or is missing required properties,
+     *                 or if the values are invalid.
+     */
+    static fromJSON(data) {
+        if (typeof data !== 'object' || data === null) {
+            throw new Error('FilmCategoryPK.fromJSONError: Input data must be a non-null object.');
+        }
+        const { filmId, categoryId } = data;
+
+        if (filmId === undefined || categoryId === undefined) {
+            throw new Error('FilmCategoryPK.fromJSONError: Input data must contain both filmId and categoryId properties.');
+        }
+
+        return new FilmCategoryPK(filmId, categoryId);
     }
 }
 
 /**
- * Exports the `FilmCategoryPK` class as a module.
- *
- * This class itself acts as a utility for handling composite primary keys.
- * The requirement for a "Collection of utility functions framework" is met by
- * defining this class as a self-contained, reusable utility module.
- * If there were multiple such utility classes or generic helper functions,
- * they would typically reside in a dedicated 'utils' directory, with each
- * exported as its own module.
+ * Exports the FilmCategoryPK class as the default export of this module.
+ * This allows it to be imported and used as a utility class for handling
+ * composite primary keys in a Node.js application.
+ * @module FilmCategoryPK
  */
 module.exports = FilmCategoryPK;
-
-/*
- * Note on Asynchronous Operations (async/await):
- *
- * The original Java `FilmCategoryPK` class is a pure data holder and does not perform any I/O,
- * database operations, or time-consuming computations. Its methods (getters, setters, equals, hashCode)
- * are inherently synchronous.
- *
- * In this Node.js conversion, the `FilmCategoryPK` class maintains this synchronous nature.
- * There are no operations within this class that would inherently benefit from or require `async/await`.
- *
- * If this class were part of a larger persistence layer (e.g., an ORM entity), then the operations
- * involving database interaction (e.g., `save`, `find`, `delete`) would indeed be asynchronous
- * and would utilize `async/await` in the surrounding service or repository layers.
- * However, for the `FilmCategoryPK` utility class itself, `async/await` is not applicable
- * to its core responsibilities of data encapsulation and comparison.
- */
-```

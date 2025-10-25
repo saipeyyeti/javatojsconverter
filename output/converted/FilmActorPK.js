@@ -1,157 +1,192 @@
-```javascript
 /**
  * @module FilmActorPK
- * @description
- * This module provides the `FilmActorPK` class, a JavaScript equivalent of a Java composite primary key class.
- * It encapsulates `actorId` and `filmId` to uniquely identify a record in a FilmActor relationship,
- * providing value object semantics through custom equality and hashing methods.
+ * @description This module defines the `FilmActorPK` class, a composite primary key
+ *              class designed for use in Node.js/JavaScript applications. It serves
+ *              an analogous purpose to JPA's `@EmbeddedId` or `@IdClass` in Java,
+ *              encapsulating the components of a compound primary key.
  *
- * This class is designed to be a Plain Old JavaScript Object (POJO) that represents a composite key,
- * similar to how `FilmActorPK` is used in JPA for database mapping.
- * It adheres to best practices for value objects by correctly implementing `equals()` and `getHashCode()`.
- *
- * While the original Java class used JPA annotations (`@Column`, `@Id`), these are specific to Java's
- * ORM frameworks and do not have a direct equivalent in a generic Node.js utility. The core functionality
- * of encapsulating the key components and defining value-based equality is maintained.
- *
- * As this class primarily deals with synchronous data manipulation, asynchronous operations (async/await)
- * are not applicable to its internal logic. However, it is designed to be compatible with an asynchronous
- * environment if integrated into a larger framework.
+ *              This class functions as a Value Object, where its identity is
+ *              determined by the values of its properties (`actorId` and `filmId`)
+ *              rather than its object reference.
  */
 
 /**
- * Represents a composite primary key for a FilmActor relationship.
- * This class encapsulates the `actorId` and `filmId` that together uniquely identify
- * a record in a many-to-many join table (e.g., `FilmActor`).
+ * Represents a composite primary key for a `FilmActor` relationship.
+ * This class encapsulates the `actorId` and `filmId` that together form the unique
+ * identifier for a record in a `FilmActor` join table.
  *
- * It acts as a Value Object, where its identity is based purely on the values of its attributes.
- *
- * @class FilmActorPK
+ * It provides methods for equality comparison, a unique string representation
+ * (useful for hashing/keying in collections), and serialization/deserialization.
  */
 class FilmActorPK {
-  /**
-   * Creates an instance of FilmActorPK.
-   *
-   * @param {number} actorId - The ID of the actor. Must be a non-negative integer.
-   * @param {number} filmId - The ID of the film. Must be a non-negative integer.
-   * @throws {TypeError} If `actorId` or `filmId` are not valid numbers (not non-negative integers).
-   */
-  constructor(actorId, filmId) {
-    // Use setters for initial validation and assignment
-    this.setActorId(actorId);
-    this.setFilmId(filmId);
-  }
+    /**
+     * The unique identifier for the actor.
+     * @private
+     * @type {number}
+     */
+    #actorId;
 
-  /**
-   * Gets the actor ID component of the composite primary key.
-   *
-   * @returns {number} The actor ID.
-   */
-  getActorId() {
-    return this.actorId;
-  }
+    /**
+     * The unique identifier for the film.
+     * @private
+     * @type {number}
+     */
+    #filmId;
 
-  /**
-   * Sets the actor ID component of the composite primary key.
-   *
-   * @param {number} actorId - The new actor ID. Must be a non-negative integer.
-   * @throws {TypeError} If `actorId` is not a valid number (not a non-negative integer).
-   */
-  setActorId(actorId) {
-    if (typeof actorId !== 'number' || !Number.isInteger(actorId) || actorId < 0) {
-      throw new TypeError('Actor ID must be a non-negative integer.');
+    /**
+     * Creates an instance of `FilmActorPK`.
+     *
+     * @param {number} actorId - The unique identifier for the actor. Must be an integer.
+     * @param {number} filmId - The unique identifier for the film. Must be an integer.
+     * @throws {Error} If `actorId` or `filmId` are not valid integer numbers.
+     */
+    constructor(actorId, filmId) {
+        if (typeof actorId !== 'number' || !Number.isInteger(actorId)) {
+            throw new Error(`Invalid actorId: Expected an integer number, but received ${typeof actorId} (${actorId}).`);
+        }
+        if (typeof filmId !== 'number' || !Number.isInteger(filmId)) {
+            throw new Error(`Invalid filmId: Expected an integer number, but received ${typeof filmId} (${filmId}).`);
+        }
+
+        this.#actorId = actorId;
+        this.#filmId = filmId;
     }
-    this.actorId = actorId;
-  }
 
-  /**
-   * Gets the film ID component of the composite primary key.
-   *
-   * @returns {number} The film ID.
-   */
-  getFilmId() {
-    return this.filmId;
-  }
-
-  /**
-   * Sets the film ID component of the composite primary key.
-   *
-   * @param {number} filmId - The new film ID. Must be a non-negative integer.
-   * @throws {TypeError} If `filmId` is not a valid number (not a non-negative integer).
-   */
-  setFilmId(filmId) {
-    if (typeof filmId !== 'number' || !Number.isInteger(filmId) || filmId < 0) {
-      throw new TypeError('Film ID must be a non-negative integer.');
+    /**
+     * Gets the actor ID.
+     * This property represents a component of the composite primary key.
+     *
+     * @returns {number} The actor's unique identifier.
+     */
+    get actorId() {
+        return this.#actorId;
     }
-    this.filmId = filmId;
-  }
 
-  /**
-   * Compares this `FilmActorPK` object with another object for equality.
-   * Two `FilmActorPK` objects are considered equal if and only if their `actorId`
-   * and `filmId` values are identical.
-   *
-   * @param {Object} o - The object to compare with.
-   * @returns {boolean} `true` if the objects are equal, `false` otherwise.
-   */
-  equals(o) {
-    // If it's the exact same object reference, they are equal
-    if (this === o) {
-      return true;
+    /**
+     * Sets the actor ID.
+     *
+     * @param {number} newActorId - The new actor ID. Must be an integer.
+     * @throws {Error} If `newActorId` is not a valid integer number.
+     */
+    set actorId(newActorId) {
+        if (typeof newActorId !== 'number' || !Number.isInteger(newActorId)) {
+            throw new Error(`Invalid actorId: Expected an integer number, but received ${typeof newActorId} (${newActorId}).`);
+        }
+        this.#actorId = newActorId;
     }
-    // If the other object is null or not an instance of FilmActorPK, they are not equal
-    if (o === null || this.constructor !== o.constructor) {
-      return false;
+
+    /**
+     * Gets the film ID.
+     * This property represents a component of the composite primary key.
+     *
+     * @returns {number} The film's unique identifier.
+     */
+    get filmId() {
+        return this.#filmId;
     }
-    // Type assertion for JSDoc, not actual casting in JavaScript
-    /** @type {FilmActorPK} */
-    const that = o;
-    // Compare the values of the component fields
-    return this.actorId === that.actorId && this.filmId === that.filmId;
-  }
 
-  /**
-   * Generates a hash code for this `FilmActorPK` object.
-   * This method returns a string representation that is consistent with `equals()`.
-   * If two objects are equal according to `equals()`, their `getHashCode()` must return
-   * the same value. This is useful for using `FilmActorPK` objects as keys in custom
-   * hash-based collections or for unique identification in scenarios where a string key is preferred.
-   *
-   * The implementation mimics `Objects.hash(actorId, filmId)` from Java by creating a
-   * unique string identifier based on the key components.
-   *
-   * @returns {string} A string representing the hash code of the object.
-   */
-  getHashCode() {
-    // A simple, consistent string concatenation is often sufficient for composite keys in JS
-    // to serve as a unique identifier or a key in a Map/Set.
-    return `${this.actorId}-${this.filmId}`;
-  }
+    /**
+     * Sets the film ID.
+     *
+     * @param {number} newFilmId - The new film ID. Must be an integer.
+     * @throws {Error} If `newFilmId` is not a valid integer number.
+     */
+    set filmId(newFilmId) {
+        if (typeof newFilmId !== 'number' || !Number.isInteger(newFilmId)) {
+            throw new Error(`Invalid filmId: Expected an integer number, but received ${typeof newFilmId} (${newFilmId}).`);
+        }
+        this.#filmId = newFilmId;
+    }
 
-  /**
-   * Returns a string representation of the FilmActorPK object.
-   * Useful for debugging and logging.
-   *
-   * @returns {string} A string in the format "FilmActorPK{actorId=X, filmId=Y}".
-   */
-  toString() {
-    return `FilmActorPK{actorId=${this.actorId}, filmId=${this.filmId}}`;
-  }
+    /**
+     * Checks if this `FilmActorPK` instance is equal to another object.
+     * Two `FilmActorPK` instances are considered equal if and only if both their
+     * `actorId` and `filmId` values are identical.
+     *
+     * This method is crucial for correctly identifying and managing entities,
+     * especially when working with collections or comparing primary keys.
+     *
+     * @param {object} other - The object to compare with.
+     * @returns {boolean} `true` if the objects are equal, `false` otherwise.
+     */
+    equals(other) {
+        // Optimization: if it's the exact same object reference, they are equal.
+        if (this === other) {
+            return true;
+        }
+        // If the other object is null, undefined, or not an instance of FilmActorPK, they are not equal.
+        // This mirrors Java's `o == null || getClass() != o.getClass()` behavior.
+        if (!(other instanceof FilmActorPK)) {
+            return false;
+        }
+        // Compare the internal private fields for value equality.
+        return this.#actorId === other.#actorId && this.#filmId === other.#filmId;
+    }
 
-  /**
-   * Converts the FilmActorPK object to a plain JavaScript object.
-   * This method is automatically called by `JSON.stringify()` when serializing
-   * an instance of `FilmActorPK`, fulfilling the spirit of Java's `Serializable` interface.
-   *
-   * @returns {{actorId: number, filmId: number}} A plain object representation suitable for JSON serialization.
-   */
-  toJSON() {
-    return {
-      actorId: this.actorId,
-      filmId: this.filmId,
-    };
-  }
+    /**
+     * Generates a unique string representation of this primary key.
+     * This method serves a similar purpose to Java's `hashCode()` in that it provides
+     * a consistent, unique identifier for the object based on its values.
+     *
+     * In JavaScript, native `Map`s and `Set`s use reference equality for objects.
+     * This `toKeyString()` method allows `FilmActorPK` instances to be used as keys
+     * in custom `Map`s or `Set`s (or as properties in plain objects) to ensure
+     * value-based uniqueness and lookup, by using this string as the actual key.
+     *
+     * The format is designed to be unambiguous and easily parsable if needed.
+     *
+     * @returns {string} A unique string representation of the composite key
+     *                   (e.g., "PK_A123_F456").
+     */
+    toKeyString() {
+        // Using a consistent prefix and separator ensures uniqueness and readability.
+        // This effectively acts as a "hash code" for JavaScript's string-keyed collections.
+        return `PK_A${this.#actorId}_F${this.#filmId}`;
+    }
+
+    /**
+     * Provides a human-readable string representation of the `FilmActorPK` object.
+     * This is particularly useful for logging, debugging, and general inspection.
+     *
+     * @returns {string} A string representation of the object
+     *                   (e.g., "FilmActorPK(actorId=1, filmId=10)").
+     */
+    toString() {
+        return `FilmActorPK(actorId=${this.#actorId}, filmId=${this.#filmId})`;
+    }
+
+    /**
+     * Converts the `FilmActorPK` instance to a plain JavaScript object.
+     * This method is automatically called by `JSON.stringify()` when serializing
+     * the object, making it easily convertible to JSON.
+     *
+     * @returns {{actorId: number, filmId: number}} A plain object representation
+     *                                             suitable for JSON serialization.
+     */
+    toJSON() {
+        return {
+            actorId: this.#actorId,
+            filmId: this.#filmId,
+        };
+    }
+
+    /**
+     * Creates a `FilmActorPK` instance from a plain JavaScript object.
+     * This static factory method is useful for deserialization (e.g., from JSON)
+     * or when constructing an instance from raw data.
+     *
+     * @param {object} data - An object containing `actorId` and `filmId` properties.
+     * @returns {FilmActorPK} A new `FilmActorPK` instance.
+     * @throws {Error} If the input `data` is invalid, not an object, or missing
+     *                 required `actorId` or `filmId` properties, or if their values are invalid.
+     */
+    static fromJSON(data) {
+        if (!data || typeof data !== 'object') {
+            throw new Error('Invalid data for FilmActorPK.fromJSON: Input must be a non-null object.');
+        }
+        // The constructor handles the validation of actorId and filmId types.
+        return new FilmActorPK(data.actorId, data.filmId);
+    }
 }
 
 export default FilmActorPK;
-```

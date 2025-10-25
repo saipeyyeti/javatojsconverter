@@ -1,314 +1,396 @@
-```javascript
+// repositories/rental.repository.js
+
+const { QueryTypes } = require('sequelize');
+
 /**
- * @file RentalRepository.js
- * @description This module provides a Data Access Object (DAO) for the Rental entity,
- *              leveraging Sequelize ORM for database interactions. It mirrors the
- *              functionality of the Java Spring Data JPA RentalRepository interface.
- *              It encapsulates the logic for accessing and persisting Rental data.
+ * @typedef {object} Rental
+ * @property {number} rentalId - The unique identifier for the rental.
+ * @property {Date} rentalDate - The date and time the rental was made.
+ * @property {number} inventoryId - The ID of the inventory item rented.
+ * @property {number} customerId - The ID of the customer who rented the item.
+ * @property {Date|null} returnDate - The date and time the rental was returned (can be null).
+ * @property {number} staffId - The ID of the staff member who processed the rental.
+ * @property {Date} lastUpdate - The last update timestamp for the rental record.
  */
 
 /**
- * Represents a custom error for repository operations.
- * @class RepositoryError
- * @extends Error
- */
-class RepositoryError extends Error {
-  /**
-   * Creates an instance of RepositoryError.
-   * @param {string} message - The error message.
-   * @param {Error} [originalError] - The original error that caused this error.
-   */
-  constructor(message, originalError) {
-    super(message);
-    this.name = 'RepositoryError';
-    this.originalError = originalError;
-    // Capturing stack trace, excluding constructor call from it.
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, RepositoryError);
-    }
-  }
-}
-
-/**
- * `RentalRepository` serves as a Data Access Object (DAO) for the `Rental` entity.
- * It provides methods for performing CRUD operations and custom queries on `Rental` records
- * using Sequelize ORM.
+ * RentalRepository class acts as a Data Access Object (DAO) for the Rental entity.
+ * It provides an abstract layer for interacting with the underlying database for Rental entities,
+ * handling standard CRUD operations and custom queries using Sequelize ORM.
  *
- * This class is designed to be instantiated with a Sequelize `Rental` model,
- * allowing for dependency injection and easier testing.
+ * This class mirrors the functionality of the Java `RentalRepository` interface,
+ * leveraging Sequelize's capabilities for object-relational mapping and database interactions.
  */
 class RentalRepository {
-  /**
-   * Creates an instance of RentalRepository.
-   * @param {object} RentalModel - The Sequelize model for the Rental entity.
-   *                               This model should be properly defined and associated.
-   * @param {object} [CustomerModel] - The Sequelize model for the Customer entity,
-   *                                   required if associations are used for complex queries.
-   *                                   (Though for `getRentalByCustomerId`, it's not strictly
-   *                                   needed if `Rental` has `customer_id` directly).
-   */
-  constructor(RentalModel, CustomerModel) {
-    if (!RentalModel) {
-      throw new RepositoryError('RentalModel must be provided to RentalRepository.');
+    /**
+     * Creates an instance of RentalRepository.
+     * @param {object} models - An object containing Sequelize models.
+     * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.Rental - The Sequelize Rental model.
+     * @param {import('sequelize').ModelCtor<import('sequelize').Model>} models.Customer - The Sequelize Customer model (needed for joins).
+     * @param {import('sequelize').Sequelize} sequelizeInstance - The Sequelize instance for executing native queries.
+     */
+    constructor(models, sequelizeInstance) {
+        /** @private */
+        this.RentalModel = models.Rental;
+        /** @private */
+        this.CustomerModel = models.Customer; // Retain reference for potential ORM-style joins or associations
+        /** @private */
+        this.sequelize = sequelizeInstance;
     }
-    this.Rental = RentalModel;
-    this.Customer = CustomerModel; // Keep for potential future use or explicit association queries
-  }
 
-  /**
-   * Persists a Rental entity to the database.
-   * If the entity has a primary key, it attempts to update an existing record.
-   * Otherwise, it inserts a new record.
-   * This method mimics Spring Data JPA's `save` behavior (upsert).
-   *
-   * @async
-   * @param {object} rentalData - An object containing the Rental entity data.
-   *                              If `rentalId` is present, it attempts an update.
-   * @returns {Promise<object>} A promise that resolves with the persisted Rental entity.
-   * @throws {RepositoryError} If the operation fails.
-   */
-  async save(rentalData) {
-    try {
-      if (rentalData.rentalId) {
-        // Attempt to update if rentalId is provided
-        const [updatedRowsCount, updatedRentals] = await this.Rental.update(rentalData, {
-          where: { rentalId: rentalData.rentalId },
-          returning: true, // Return the updated object(s)
-        });
-        if (updatedRowsCount > 0) {
-          return updatedRentals[0]; // Return the first updated object
+    /**
+     * Persists a Rental entity. If the entity has a `rentalId`, it updates the existing one;
+     * otherwise, it creates a new one. This method mimics the behavior of `JpaRepository.save()`.
+     *
+     * @param {Rental} rentalData - The rental data to save.
+     * @returns {Promise<Rental>} The saved or updated Rental entity instance.
+     * @throws {Error} If there's a database error or if an update is attempted for a non-existent rental.
+     */
+    async save(rentalData) {
+        try {
+            if (rentalData.rentalId) {
+                // Attempt to find and update an existing rental
+                const [updatedRowsCount] = await this.RentalModel.update(rentalData, {
+                    where: { rentalId: rentalData.rentalId }
+                });
+
+                if (updatedRowsCount > 0) {
+                    // Fetch the updated record to return the full instance
+                    return await this.RentalModel.findByPk(rentalData.rentalId);
+                } else {
+                    // If rentalId was provided but no rows were updated, it means the record wasn't found.
+                    throw new Error(`Rental with ID ${rentalData.rentalId} not found for update.`);
+                }
+            } else {
+                // Create a new rental entity
+                return await this.RentalModel.create(rentalData);
+            }
+        } catch (error) {
+            console.error(`[RentalRepository] Error saving rental: ${error.message}`, error);
+            throw new Error(`Failed to save rental: ${error.message}`);
         }
-        // If no rows were updated, it might be a new entity or an ID that doesn't exist.
-        // For Spring Data JPA's `save`, if an ID is provided but doesn't exist, it inserts.
-        // Sequelize's `upsert` is a better match for this behavior.
-        const [rental, created] = await this.Rental.upsert(rentalData, {
-          returning: true,
-        });
-        return rental;
-      } else {
-        // Insert a new record
-        return await this.Rental.create(rentalData);
-      }
-    } catch (error) {
-      throw new RepositoryError(`Failed to save rental: ${error.message}`, error);
     }
-  }
 
-  /**
-   * Retrieves a single Rental entity by its primary key (`rentalId`).
-   *
-   * @async
-   * @param {number} id - The `rentalId` (primary key) of the Rental entity to retrieve.
-   * @returns {Promise<object|null>} A promise that resolves with the Rental entity if found,
-   *                                  otherwise `null`.
-   * @throws {RepositoryError} If the database query fails.
-   */
-  async findById(id) {
-    try {
-      return await this.Rental.findByPk(id);
-    } catch (error) {
-      throw new RepositoryError(`Failed to find rental by ID ${id}: ${error.message}`, error);
+    /**
+     * Retrieves a Rental entity by its primary key (`rentalId`).
+     * This method mimics the behavior of `JpaRepository.findById()`.
+     *
+     * @param {number} id - The primary key (`rentalId`) of the rental to retrieve.
+     * @returns {Promise<Rental|null>} The Rental entity instance if found, otherwise `null`.
+     * @throws {Error} If there's a database error.
+     */
+    async findById(id) {
+        try {
+            return await this.RentalModel.findByPk(id);
+        } catch (error) {
+            console.error(`[RentalRepository] Error finding rental by ID ${id}: ${error.message}`, error);
+            throw new Error(`Failed to find rental by ID ${id}: ${error.message}`);
+        }
     }
-  }
 
-  /**
-   * Retrieves a single Rental entity by its `rentalId`.
-   * This method is functionally identical to `findById` but explicitly named
-   * to match the Java `getRentalByRentalId` method.
-   *
-   * @async
-   * @param {number} id - The `rentalId` of the Rental entity to retrieve.
-   * @returns {Promise<object|null>} A promise that resolves with the Rental entity if found,
-   *                                  otherwise `null`.
-   * @throws {RepositoryError} If the database query fails.
-   */
-  async getRentalByRentalId(id) {
-    try {
-      return await this.Rental.findByPk(id);
-    } catch (error) {
-      throw new RepositoryError(`Failed to get rental by rentalId ${id}: ${error.message}`, error);
+    /**
+     * Retrieves all Rental entities from the database.
+     * This method mimics the behavior of `JpaRepository.findAll()`.
+     *
+     * @returns {Promise<Rental[]>} A list of all Rental entity instances.
+     * @throws {Error} If there's a database error.
+     */
+    async findAll() {
+        try {
+            return await this.RentalModel.findAll();
+        } catch (error) {
+            console.error(`[RentalRepository] Error finding all rentals: ${error.message}`, error);
+            throw new Error(`Failed to find all rentals: ${error.message}`);
+        }
     }
-  }
 
-  /**
-   * Retrieves all Rental entities from the database.
-   *
-   * @async
-   * @returns {Promise<Array<object>>} A promise that resolves with a list of all Rental entities.
-   * @throws {RepositoryError} If the database query fails.
-   */
-  async findAll() {
-    try {
-      return await this.Rental.findAll();
-    } catch (error) {
-      throw new RepositoryError(`Failed to retrieve all rentals: ${error.message}`, error);
+    /**
+     * Deletes a Rental entity from the database.
+     * This method mimics the behavior of `JpaRepository.delete()`.
+     *
+     * @param {Rental} rental - The Rental entity instance to delete. It must contain a `rentalId`.
+     * @returns {Promise<number>} The number of rows deleted (0 or 1).
+     * @throws {Error} If an invalid rental object is provided or if there's a database error.
+     */
+    async delete(rental) {
+        try {
+            if (!rental || !rental.rentalId) {
+                throw new Error("Invalid rental object provided for deletion. Missing 'rentalId'.");
+            }
+            return await this.RentalModel.destroy({
+                where: { rentalId: rental.rentalId }
+            });
+        } catch (error) {
+            console.error(`[RentalRepository] Error deleting rental with ID ${rental?.rentalId}: ${error.message}`, error);
+            throw new Error(`Failed to delete rental: ${error.message}`);
+        }
     }
-  }
 
-  /**
-   * Deletes a Rental entity from the database by its primary key (`rentalId`).
-   *
-   * @async
-   * @param {number} id - The `rentalId` of the Rental entity to delete.
-   * @returns {Promise<number>} A promise that resolves with the number of deleted rows (0 or 1).
-   * @throws {RepositoryError} If the deletion operation fails.
-   */
-  async deleteById(id) {
-    try {
-      return await this.Rental.destroy({
-        where: { rentalId: id },
-      });
-    } catch (error) {
-      throw new RepositoryError(`Failed to delete rental by ID ${id}: ${error.message}`, error);
+    /**
+     * Returns the total number of Rental entities in the database.
+     * This method mimics the behavior of `JpaRepository.count()`.
+     *
+     * @returns {Promise<number>} The total number of Rental entities.
+     * @throws {Error} If there's a database error.
+     */
+    async count() {
+        try {
+            return await this.RentalModel.count();
+        } catch (error) {
+            console.error(`[RentalRepository] Error counting rentals: ${error.message}`, error);
+            throw new Error(`Failed to count rentals: ${error.message}`);
+        }
     }
-  }
 
-  /**
-   * Deletes a given Rental entity from the database.
-   *
-   * @async
-   * @param {object} rental - The Rental entity object to delete. It must contain `rentalId`.
-   * @returns {Promise<number>} A promise that resolves with the number of deleted rows (0 or 1).
-   * @throws {RepositoryError} If the deletion operation fails or `rentalId` is missing.
-   */
-  async delete(rental) {
-    if (!rental || !rental.rentalId) {
-      throw new RepositoryError('Rental object with rentalId is required for deletion.');
+    /**
+     * Retrieves a single Rental entity based on its unique `rentalId`.
+     * This is a custom method, functionally equivalent to `findById` but named specifically
+     * to match the Java interface's derived query method `getRentalByRentalId`.
+     *
+     * @param {number} id - The unique `rentalId` of the rental.
+     * @returns {Promise<Rental|null>} The Rental entity instance if found, otherwise `null`.
+     * @throws {Error} If there's a database error.
+     */
+    async getRentalByRentalId(id) {
+        try {
+            return await this.RentalModel.findByPk(id);
+        } catch (error) {
+            console.error(`[RentalRepository] Error retrieving rental by rentalId ${id}: ${error.message}`, error);
+            throw new Error(`Failed to retrieve rental by rentalId ${id}: ${error.message}`);
+        }
     }
-    return this.deleteById(rental.rentalId);
-  }
 
-  /**
-   * Retrieves a list of Rental entities associated with a specific Customer ID.
-   * This method translates the native SQL query from the Java repository.
-   * It assumes the `Rental` model has a `customer_id` foreign key column.
-   *
-   * @async
-   * @param {number} customerId - The ID of the customer to retrieve rentals for.
-   * @returns {Promise<Array<object>>} A promise that resolves with a list of Rental entities.
-   * @throws {RepositoryError} If the database query fails.
-   */
-  async getRentalByCustomerId(customerId) {
-    try {
-      // The original Java query was `SELECT * FROM rental r INNER JOIN customer c ON r.customer_id = c.customer_id WHERE c.customer_id = :customerId`
-      // This query only selects columns from the `rental` table and uses the join purely for filtering.
-      // If the `Rental` model has a `customer_id` column (which is standard for foreign keys),
-      // a simple `where` clause on the `Rental` model is the most idiomatic and efficient Sequelize equivalent.
-      return await this.Rental.findAll({
-        where: { customerId: customerId }, // Assuming 'customerId' is the attribute name for 'customer_id' column
-      });
-    } catch (error) {
-      throw new RepositoryError(`Failed to get rentals by customer ID ${customerId}: ${error.message}`, error);
+    /**
+     * Retrieves a list of Rental entities that are associated with a specific `customerId`.
+     * This method uses a native SQL query, directly mirroring the Java `@Query(nativeQuery = true)` approach
+     * to ensure exact translation of the join logic.
+     *
+     * @param {number} customerId - The ID of the customer.
+     * @returns {Promise<Rental[]>} A list of Rental entity instances for the given customer.
+     * @throws {Error} If there's a database error.
+     */
+    async getRentalByCustomerId(customerId) {
+        try {
+            const sqlQuery = `
+                SELECT r.*
+                FROM rental r
+                INNER JOIN customer c ON r.customer_id = c.customer_id
+                WHERE c.customer_id = :customerId
+            `;
+            // Execute the native SQL query using the Sequelize instance
+            const rentals = await this.sequelize.query(sqlQuery, {
+                replacements: { customerId: customerId }, // Parameter binding for security
+                type: QueryTypes.SELECT, // Specify that this is a SELECT query
+                model: this.RentalModel, // Instruct Sequelize to map results to Rental model instances
+                mapToModel: true // Ensure the mapping happens
+            });
+            return rentals;
+        } catch (error) {
+            console.error(`[RentalRepository] Error retrieving rentals by customerId ${customerId}: ${error.message}`, error);
+            throw new Error(`Failed to retrieve rentals by customerId ${customerId}: ${error.message}`);
+        }
     }
-  }
 }
-
-// --- Example Usage (assuming setup in a separate file like `db.js` and `models/`) ---
-/*
-// db.js (example setup)
-const { Sequelize, DataTypes } = require('sequelize');
-const config = require('./config/config.json'); // Or process.env for production
-
-const env = process.env.NODE_ENV || 'development';
-const dbConfig = config[env];
-
-const sequelize = new Sequelize(dbConfig.database, dbConfig.username, dbConfig.password, {
-  host: dbConfig.host,
-  dialect: dbConfig.dialect,
-  logging: false, // Set to console.log for debugging
-});
-
-// Define Rental Model (models/rental.js)
-const RentalModel = sequelize.define('Rental', {
-  rentalId: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-    field: 'rental_id'
-  },
-  rentalDate: { type: DataTypes.DATE, allowNull: false, field: 'rental_date' },
-  inventoryId: { type: DataTypes.INTEGER, allowNull: false, field: 'inventory_id' },
-  customerId: { type: DataTypes.INTEGER, allowNull: false, field: 'customer_id' }, // Foreign key
-  returnDate: { type: DataTypes.DATE, field: 'return_date' },
-  staffId: { type: DataTypes.INTEGER, allowNull: false, field: 'staff_id' },
-  lastUpdate: { type: DataTypes.DATE, allowNull: false, defaultValue: DataTypes.NOW, field: 'last_update' }
-}, {
-  tableName: 'rental',
-  timestamps: false
-});
-
-// Define Customer Model (models/customer.js) - simplified for association context
-const CustomerModel = sequelize.define('Customer', {
-  customerId: {
-    type: DataTypes.INTEGER,
-    primaryKey: true,
-    autoIncrement: true,
-    field: 'customer_id'
-  },
-  firstName: { type: DataTypes.STRING, allowNull: false, field: 'first_name' },
-  lastName: { type: DataTypes.STRING, allowNull: false, field: 'last_name' }
-}, {
-  tableName: 'customer',
-  timestamps: false
-});
-
-// Define associations (important for ORM queries, though not strictly needed for getRentalByCustomerId if Rental has customerId column)
-RentalModel.belongsTo(CustomerModel, { foreignKey: 'customer_id', targetKey: 'customer_id' });
-CustomerModel.hasMany(RentalModel, { foreignKey: 'customer_id', sourceKey: 'customer_id' });
-
-module.exports = {
-  sequelize,
-  RentalModel,
-  CustomerModel
-};
-
-// --- In your application's entry point (e.g., app.js or service layer) ---
-const { RentalModel, CustomerModel, sequelize } = require('./db');
-const rentalRepository = new RentalRepository(RentalModel, CustomerModel);
-
-async function runExample() {
-  try {
-    await sequelize.sync(); // Sync models with database (for development, use migrations in production)
-    console.log('Database synced.');
-
-    // Example: Save a new rental
-    const newRental = await rentalRepository.save({
-      rentalDate: new Date(),
-      inventoryId: 1,
-      customerId: 101,
-      staffId: 1,
-    });
-    console.log('New rental saved:', newRental.toJSON());
-
-    // Example: Find rental by ID
-    const foundRental = await rentalRepository.findById(newRental.rentalId);
-    console.log('Found rental by ID:', foundRental ? foundRental.toJSON() : 'Not found');
-
-    // Example: Get rental by rentalId (same as findById)
-    const rentalById = await rentalRepository.getRentalByRentalId(newRental.rentalId);
-    console.log('Get rental by rentalId:', rentalById ? rentalById.toJSON() : 'Not found');
-
-    // Example: Get rentals by customer ID
-    const customerRentals = await rentalRepository.getRentalByCustomerId(101);
-    console.log('Rentals for customer 101:', customerRentals.map(r => r.toJSON()));
-
-    // Example: Find all rentals
-    const allRentals = await rentalRepository.findAll();
-    console.log('All rentals:', allRentals.map(r => r.toJSON()));
-
-    // Example: Delete a rental
-    const deletedCount = await rentalRepository.deleteById(newRental.rentalId);
-    console.log(`Deleted ${deletedCount} rental(s) with ID ${newRental.rentalId}`);
-
-  } catch (error) {
-    console.error('An error occurred:', error);
-  } finally {
-    await sequelize.close();
-  }
-}
-
-// runExample();
-*/
 
 module.exports = RentalRepository;
-```
+
+// --- Supporting Model Definitions (Required for RentalRepository) ---
+// These files would typically be in a 'models' directory.
+
+// models/customer.model.js
+// This file defines the Customer model. It's needed for the join in getRentalByCustomerId.
+// You would typically initialize Sequelize and load models in an 'init' or 'config' file.
+/*
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+    const Customer = sequelize.define('Customer', {
+        customerId: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+            field: 'customer_id' // Maps to the actual column name in the database
+        },
+        firstName: {
+            type: DataTypes.STRING(45),
+            allowNull: false,
+            field: 'first_name'
+        },
+        lastName: {
+            type: DataTypes.STRING(45),
+            allowNull: false,
+            field: 'last_name'
+        },
+        email: {
+            type: DataTypes.STRING(50),
+            allowNull: true
+        },
+        // Add other customer fields as necessary based on your 'customer' table schema
+    }, {
+        tableName: 'customer', // Explicitly specify the table name
+        timestamps: false // Assuming no createdAt/updatedAt columns in 'customer' table
+    });
+
+    // Define associations here if needed for other parts of your application
+    // Customer.associate = (models) => {
+    //     Customer.hasMany(models.Rental, { foreignKey: 'customerId', as: 'rentals' });
+    // };
+
+    return Customer;
+};
+*/
+
+// models/rental.model.js
+// This file defines the Rental model.
+/*
+const { DataTypes } = require('sequelize');
+
+module.exports = (sequelize) => {
+    const Rental = sequelize.define('Rental', {
+        rentalId: {
+            type: DataTypes.INTEGER,
+            primaryKey: true,
+            autoIncrement: true,
+            field: 'rental_id' // Maps to the actual column name in the database
+        },
+        rentalDate: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            field: 'rental_date'
+        },
+        inventoryId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            field: 'inventory_id'
+        },
+        customerId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            field: 'customer_id'
+        },
+        returnDate: {
+            type: DataTypes.DATE,
+            allowNull: true,
+            field: 'return_date'
+        },
+        staffId: {
+            type: DataTypes.INTEGER,
+            allowNull: false,
+            field: 'staff_id'
+        },
+        lastUpdate: {
+            type: DataTypes.DATE,
+            allowNull: false,
+            defaultValue: DataTypes.NOW, // Set default to current timestamp if not provided
+            field: 'last_update'
+        }
+    }, {
+        tableName: 'rental', // Explicitly specify the table name
+        timestamps: false // Assuming no createdAt/updatedAt columns in 'rental' table
+    });
+
+    // Define associations (e.g., Rental belongs to Customer)
+    // This is good practice even if the specific query uses native SQL.
+    Rental.associate = (models) => {
+        Rental.belongsTo(models.Customer, { foreignKey: 'customerId', as: 'customer' });
+        // Add other associations if needed, e.g., to Inventory, Staff
+    };
+
+    return Rental;
+};
+*/
+
+// --- Example of how to initialize and use (not part of the required output) ---
+/*
+// config/database.js
+const { Sequelize } = require('sequelize');
+const sequelize = new Sequelize('sakila', 'user', 'password', {
+    host: 'localhost',
+    dialect: 'mysql', // or 'postgres', 'sqlite', 'mssql'
+    logging: false, // Set to true to see SQL queries in console
+});
+module.exports = sequelize;
+
+// app.js or index.js
+const sequelize = require('./config/database');
+const CustomerModel = require('./models/customer.model')(sequelize);
+const RentalModel = require('./models/rental.model')(sequelize);
+
+// Define associations after all models are loaded
+Object.values(sequelize.models)
+    .filter(model => typeof model.associate === 'function')
+    .forEach(model => model.associate(sequelize.models));
+
+const RentalRepository = require('./repositories/rental.repository');
+const rentalRepository = new RentalRepository(sequelize.models, sequelize);
+
+async function runExample() {
+    try {
+        await sequelize.authenticate();
+        console.log('Database connection has been established successfully.');
+
+        // Example Usage:
+        // 1. Find all rentals
+        const allRentals = await rentalRepository.findAll();
+        console.log(`Found ${allRentals.length} rentals.`);
+
+        // 2. Find rental by ID
+        const rentalIdToFind = 1; // Replace with an actual rental ID
+        const rentalById = await rentalRepository.findById(rentalIdToFind);
+        if (rentalById) {
+            console.log(`Rental by ID ${rentalIdToFind}:`, rentalById.toJSON());
+        } else {
+            console.log(`Rental with ID ${rentalIdToFind} not found.`);
+        }
+
+        // 3. Get rental by specific rental ID (custom method)
+        const specificRental = await rentalRepository.getRentalByRentalId(rentalIdToFind);
+        if (specificRental) {
+            console.log(`Specific Rental by ID ${rentalIdToFind}:`, specificRental.toJSON());
+        }
+
+        // 4. Get rentals by customer ID (native query)
+        const customerIdToFind = 1; // Replace with an actual customer ID
+        const rentalsByCustomer = await rentalRepository.getRentalByCustomerId(customerIdToFind);
+        console.log(`Rentals for Customer ID ${customerIdToFind}:`, rentalsByCustomer.map(r => r.toJSON()));
+
+        // 5. Count rentals
+        const rentalCount = await rentalRepository.count();
+        console.log(`Total number of rentals: ${rentalCount}`);
+
+        // 6. Create a new rental
+        const newRentalData = {
+            rentalDate: new Date(),
+            inventoryId: 100, // Ensure this exists in your inventory table
+            customerId: 1,    // Ensure this exists in your customer table
+            staffId: 1,       // Ensure this exists in your staff table
+            // returnDate can be null initially
+        };
+        const createdRental = await rentalRepository.save(newRentalData);
+        console.log('Created new rental:', createdRental.toJSON());
+
+        // 7. Update an existing rental
+        if (createdRental) {
+            const updatedRentalData = {
+                rentalId: createdRental.rentalId,
+                returnDate: new Date(),
+                lastUpdate: new Date(), // Manually update lastUpdate if not handled by DB trigger
+            };
+            const updatedRental = await rentalRepository.save(updatedRentalData);
+            console.log('Updated rental:', updatedRental.toJSON());
+
+            // 8. Delete a rental
+            const deletedRows = await rentalRepository.delete(updatedRental);
+            console.log(`Deleted ${deletedRows} rental(s) with ID ${updatedRental.rentalId}.`);
+        }
+
+    } catch (error) {
+        console.error('Unable to connect to the database or perform operations:', error);
+    } finally {
+        await sequelize.close();
+        console.log('Database connection closed.');
+    }
+}
+
+runExample();
+*/
