@@ -642,7 +642,7 @@ def main():
     print("🔄 Converting selected files to Node.js...\n")
     
     # Re-initialize the LLM with settings optimized for conversion
-    converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=16000)
+    converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=32000)
     converter = CodeConverter(converter_llm, provider)
     
     # Convert all modules that have methods
