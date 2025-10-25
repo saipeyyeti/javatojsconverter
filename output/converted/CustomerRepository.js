@@ -1,454 +1,222 @@
+Here is the complete Node.js/JavaScript implementation of the `CustomerRepository` using Sequelize ORM, following all specified requirements.
+
+This solution assumes a standard Sakila database schema for the `customer` table.
+
+---
+
+### File Structure:
+
+```
+src/
+├── config/
+│   └── db.config.js
+├── models/
+│   └── customer.model.js
+├── repositories/
+│   └── customer.repository.js
+└── index.js (Sequelize initialization)
+```
+
+---
+
+### 1. `src/config/db.config.js`
+
+This file holds your database connection configuration. **Remember to replace placeholder values with your actual database credentials.**
+
 ```javascript
+// src/config/db.config.js
+
 /**
- * @file CustomerRepository.js
- * @description This file defines the CustomerRepository, a Data Access Object (DAO)
- *              for managing Customer entities using Sequelize ORM. It provides
- *              methods for standard CRUD operations and custom queries,
- *              mirroring the functionality of the Java Spring Data JPA CustomerRepository.
+ * Database configuration settings.
+ * @module dbConfig
  */
-
-const { Sequelize, DataTypes, Op } = require('sequelize');
-
-// --- 1. Sequelize Initialization (Example - In a real app, this would be in a config file) ---
-/**
- * Initializes and returns a Sequelize instance.
- * Replace with your actual database configuration.
- * @returns {Sequelize} The initialized Sequelize instance.
- */
-const initializeSequelize = () => {
-    // Example configuration for a MySQL database (Sakila project context)
-    // IMPORTANT: Replace 'your_database', 'your_user', 'your_password' with actual credentials.
-    const sequelize = new Sequelize('sakila', 'root', 'password', {
-        host: 'localhost',
-        dialect: 'mysql',
-        logging: false, // Set to true to see SQL queries in console
-        pool: {
-            max: 5,
-            min: 0,
-            acquire: 30000,
-            idle: 10000
-        }
-    });
-
-    // Optional: Test the database connection
-    // (This block would typically be in your application's startup logic)
-    // async function testConnection() {
-    //     try {
-    //         await sequelize.authenticate();
-    //         console.log('Database connection has been established successfully.');
-    //     } catch (error) {
-    //         console.error('Unable to connect to the database:', error);
-    //         process.exit(1); // Exit if database connection fails
-    //     }
-    // }
-    // testConnection();
-
-    return sequelize;
+module.exports = {
+  /** The database host. */
+  HOST: "localhost", // e.g., "localhost", "127.0.0.1", or your cloud database host
+  /** The database user. */
+  USER: "root",      // e.g., "root", "your_db_user"
+  /** The database password. */
+  PASSWORD: "password", // e.g., "password", "your_db_password"
+  /** The database name. */
+  DB: "sakila",      // e.g., "sakila", "your_database_name"
+  /** The database dialect (e.g., "mysql", "postgres", "sqlite", "mssql"). */
+  DIALECT: "mysql",
+  /** Sequelize connection pool configuration. */
+  pool: {
+    /** Maximum number of connections in pool. */
+    max: 5,
+    /** Minimum number of connections in pool. */
+    min: 0,
+    /** The maximum time, in milliseconds, that a connection can be idle before being released. */
+    acquire: 30000,
+    /** The maximum time, in milliseconds, that a connection can be idle before being released. */
+    idle: 10000
+  }
 };
+```
 
-const sequelize = initializeSequelize();
+---
 
-// --- 2. Customer Model Definition ---
+### 2. `src/models/customer.model.js`
+
+This file defines the Sequelize model for the `Customer` entity, mapping it to the `customer` table in your database.
+
+```javascript
+// src/models/customer.model.js
+const { DataTypes } = require('sequelize');
+
 /**
  * Defines the Customer model for Sequelize.
- * This corresponds to the `Customer` entity in the Java application.
- * @param {Sequelize} sequelize - The Sequelize instance.
- * @returns {object} The Customer Sequelize model.
+ * This model represents the 'customer' table in the database.
+ *
+ * @param {import('sequelize').Sequelize} sequelize - The Sequelize instance.
+ * @returns {import('sequelize').Model} The Customer model.
  */
-const CustomerModel = (sequelize) => {
-    const Customer = sequelize.define('Customer', {
-        customer_id: {
-            type: DataTypes.INTEGER,
-            primaryKey: true,
-            autoIncrement: true,
-            field: 'customer_id' // Explicitly map to database column
-        },
-        store_id: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            field: 'store_id'
-        },
-        first_name: {
-            type: DataTypes.STRING(45),
-            allowNull: false,
-            field: 'first_name'
-        },
-        last_name: {
-            type: DataTypes.STRING(45),
-            allowNull: false,
-            field: 'last_name'
-        },
-        email: {
-            type: DataTypes.STRING(50),
-            allowNull: true, // Email can be null in Sakila
-            unique: true, // Assuming email should be unique if present
-            field: 'email'
-        },
-        address_id: {
-            type: DataTypes.INTEGER,
-            allowNull: false,
-            field: 'address_id'
-        },
-        active: {
-            type: DataTypes.BOOLEAN,
-            allowNull: false,
-            defaultValue: true,
-            field: 'active'
-        },
-        create_date: {
-            type: DataTypes.DATE,
-            allowNull: false,
-            field: 'create_date'
-        },
-        last_update: {
-            type: DataTypes.DATE,
-            allowNull: false,
-            defaultValue: DataTypes.NOW,
-            field: 'last_update'
-        }
-    }, {
-        tableName: 'customer', // Explicitly set table name
-        timestamps: false // Sakila tables typically manage their own timestamps
-    });
+module.exports = (sequelize) => {
+  const Customer = sequelize.define('Customer', {
+    customer_id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true,
+      allowNull: false,
+      field: 'customer_id', // Explicitly map to database column name
+      comment: 'Primary key for the customer table.'
+    },
+    store_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'store_id',
+      comment: 'Foreign key to the store table.'
+    },
+    first_name: {
+      type: DataTypes.STRING(45),
+      allowNull: false,
+      field: 'first_name',
+      comment: 'Customer\'s first name.'
+    },
+    last_name: {
+      type: DataTypes.STRING(45),
+      allowNull: false,
+      field: 'last_name',
+      comment: 'Customer\'s last name.'
+    },
+    email: {
+      type: DataTypes.STRING(50),
+      allowNull: true, // Email can be null in Sakila schema
+      unique: true,
+      field: 'email',
+      comment: 'Customer\'s email address, unique if present.'
+    },
+    address_id: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      field: 'address_id',
+      comment: 'Foreign key to the address table.'
+    },
+    active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+      field: 'active',
+      comment: 'Indicates if the customer is active (1) or inactive (0).'
+    },
+    create_date: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      field: 'create_date',
+      comment: 'The date and time the customer record was created.'
+    },
+    last_update: {
+      type: DataTypes.DATE,
+      allowNull: false,
+      defaultValue: DataTypes.NOW,
+      field: 'last_update',
+      comment: 'The date and time the customer record was last updated.'
+    }
+  }, {
+    tableName: 'customer', // Explicitly define table name
+    timestamps: false,     // Sakila tables usually don't use Sequelize's default timestamps
+    underscored: true,     // Use underscored column names (e.g., customer_id)
+    comment: 'Represents a customer in the Sakila database.'
+  });
 
-    return Customer;
+  return Customer;
 };
+```
 
-const Customer = CustomerModel(sequelize);
+---
 
-// --- 3. CustomerRepository Implementation ---
+### 3. `src/index.js`
+
+This file initializes Sequelize and exports the `db` object containing the configured Sequelize instance and models.
+
+```javascript
+// src/index.js
+const { Sequelize } = require('sequelize');
+const dbConfig = require('./config/db.config');
 
 /**
- * @class CustomerRepository
- * @description A Data Access Object (DAO) for Customer entities.
- *              It encapsulates all database operations related to the Customer model,
- *              providing an abstraction layer over Sequelize.
+ * Initializes and configures the Sequelize ORM.
+ * @module db
  */
-class CustomerRepository {
-    /**
-     * Creates an instance of CustomerRepository.
-     * @param {object} customerModel - The Sequelize Customer model.
-     */
-    constructor(customerModel) {
-        this.Customer = customerModel;
-    }
 
-    // --- Inherited Methods (from JpaRepository equivalent) ---
+// Create a new Sequelize instance
+const sequelize = new Sequelize(dbConfig.DB, dbConfig.USER, dbConfig.PASSWORD, {
+  host: dbConfig.HOST,
+  dialect: dbConfig.DIALECT,
+  pool: {
+    max: dbConfig.pool.max,
+    min: dbConfig.pool.min,
+    acquire: dbConfig.pool.acquire,
+    idle: dbConfig.pool.idle
+  },
+  logging: false // Set to true to see SQL queries in the console
+});
 
-    /**
-     * Saves a Customer entity. If the entity has a primary key, it attempts to update;
-     * otherwise, it inserts a new record.
-     * @param {object} customerData - The customer data to save.
-     * @returns {Promise<object>} The saved or updated Customer entity.
-     * @throws {Error} If there is a database error.
-     */
-    async save(customerData) {
-        try {
-            // Sequelize's upsert method handles both insert and update based on primary key
-            const [customer, created] = await this.Customer.upsert(customerData, {
-                returning: true // Return the updated/created instance
-            });
-            return customer;
-        } catch (error) {
-            console.error(`[CustomerRepository] Error saving customer: ${error.message}`);
-            throw new Error(`Failed to save customer: ${error.message}`);
-        }
-    }
+/**
+ * The database object containing the Sequelize instance and models.
+ * @property {import('sequelize').Sequelize} Sequelize - The Sequelize constructor.
+ * @property {import('sequelize').Sequelize} sequelize - The initialized Sequelize instance.
+ * @property {import('sequelize').Model} Customer - The Customer model.
+ */
+const db = {};
 
-    /**
-     * Retrieves a Customer entity by its primary key (customer_id).
-     * @param {number} id - The primary key of the customer.
-     * @returns {Promise<object|null>} The Customer entity if found, otherwise null.
-     * @throws {Error} If there is a database error.
-     */
-    async findById(id) {
-        try {
-            return await this.Customer.findByPk(id);
-        } catch (error) {
-            console.error(`[CustomerRepository] Error finding customer by ID ${id}: ${error.message}`);
-            throw new Error(`Failed to find customer by ID: ${error.message}`);
-        }
-    }
+db.Sequelize = Sequelize;
+db.sequelize = sequelize;
 
-    /**
-     * Retrieves all Customer entities.
-     * @returns {Promise<Array<object>>} A list of all Customer entities.
-     * @throws {Error} If there is a database error.
-     */
-    async findAll() {
-        try {
-            return await this.Customer.findAll();
-        } catch (error) {
-            console.error(`[CustomerRepository] Error retrieving all customers: ${error.message}`);
-            throw new Error(`Failed to retrieve all customers: ${error.message}`);
-        }
-    }
+// Import and initialize models
+db.Customer = require('./models/customer.model')(sequelize);
 
-    /**
-     * Deletes a Customer entity by its primary key.
-     * @param {number} id - The primary key of the customer to delete.
-     * @returns {Promise<number>} The number of rows deleted (0 or 1).
-     * @throws {Error} If there is a database error.
-     */
-    async deleteById(id) {
-        try {
-            return await this.Customer.destroy({
-                where: { customer_id: id }
-            });
-        } catch (error) {
-            console.error(`[CustomerRepository] Error deleting customer by ID ${id}: ${error.message}`);
-            throw new Error(`Failed to delete customer by ID: ${error.message}`);
-        }
-    }
+// Optional: Synchronize all models with the database.
+// Use `force: true` to drop existing tables and recreate them (USE WITH CAUTION IN PRODUCTION).
+// db.sequelize.sync({ force: false })
+//   .then(() => {
+//     console.log("Database & tables created/synced successfully!");
+//   })
+//   .catch(err => {
+//     console.error("Error syncing database:", err);
+//   });
 
-    /**
-     * Deletes a Customer entity.
-     * @param {object} customerEntity - The customer entity object to delete. Must contain `customer_id`.
-     * @returns {Promise<number>} The number of rows deleted (0 or 1).
-     * @throws {Error} If the entity does not have a customer_id or there is a database error.
-     */
-    async delete(customerEntity) {
-        if (!customerEntity || !customerEntity.customer_id) {
-            throw new Error("Customer entity must have a 'customer_id' to be deleted.");
-        }
-        return this.deleteById(customerEntity.customer_id);
-    }
-
-    /**
-     * Returns the total number of Customer entities available.
-     * @returns {Promise<number>} The total count of customers.
-     * @throws {Error} If there is a database error.
-     */
-    async count() {
-        try {
-            return await this.Customer.count();
-        } catch (error) {
-            console.error(`[CustomerRepository] Error counting customers: ${error.message}`);
-            throw new Error(`Failed to count customers: ${error.message}`);
-        }
-    }
-
-    /**
-     * Checks if an entity with the given ID exists.
-     * @param {number} id - The primary key of the customer.
-     * @returns {Promise<boolean>} True if an entity with the given ID exists, false otherwise.
-     * @throws {Error} If there is a database error.
-     */
-    async existsById(id) {
-        try {
-            const count = await this.Customer.count({
-                where: { customer_id: id }
-            });
-            return count > 0;
-        } catch (error) {
-            console.error(`[CustomerRepository] Error checking existence for ID ${id}: ${error.message}`);
-            throw new Error(`Failed to check existence by ID: ${error.message}`);
-        }
-    }
-
-    // --- Custom Methods (defined in CustomerRepository) ---
-
-    /**
-     * Authenticates or retrieves a Customer based on their email (username) and customer_id (password).
-     * NOTE: Using customer_id as a "password" is highly unusual and insecure for production systems.
-     * This method is implemented to match the original Java functionality.
-     * @param {string} username - The customer's email address.
-     * @param {number} password - The customer's ID (acting as a password).
-     * @returns {Promise<object|null>} The Customer entity if credentials match, otherwise null.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomerByCredentials(username, password) {
-        try {
-            return await this.Customer.findOne({
-                where: {
-                    email: username,
-                    customer_id: password
-                }
-            });
-        } catch (error) {
-            console.error(`[CustomerRepository] Error getting customer by credentials: ${error.message}`);
-            throw new Error(`Failed to get customer by credentials: ${error.message}`);
-        }
-    }
-
-    /**
-     * Retrieves a single Customer entity by their email address.
-     * @param {string} username - The customer's email address.
-     * @returns {Promise<object|null>} The Customer entity if found, otherwise null.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomerByUsername(username) {
-        try {
-            return await this.Customer.findOne({
-                where: { email: username }
-            });
-        } catch (error) {
-            console.error(`[CustomerRepository] Error getting customer by username '${username}': ${error.message}`);
-            throw new Error(`Failed to get customer by username: ${error.message}`);
-        }
-    }
-
-    /**
-     * Retrieves a list of Customer entities whose first name matches the given `firstName`.
-     * @param {string} firstName - The first name to search for.
-     * @returns {Promise<Array<object>>} A list of matching Customer entities.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomersByFirstName(firstName) {
-        try {
-            return await this.Customer.findAll({
-                where: { first_name: firstName }
-            });
-        } catch (error) {
-            console.error(`[CustomerRepository] Error getting customers by first name '${firstName}': ${error.message}`);
-            throw new Error(`Failed to get customers by first name: ${error.message}`);
-        }
-    }
-
-    /**
-     * Retrieves a list of Customer entities whose last name matches the given `lastName`.
-     * @param {string} lastName - The last name to search for.
-     * @returns {Promise<Array<object>>} A list of matching Customer entities.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomersByLastName(lastName) {
-        try {
-            return await this.Customer.findAll({
-                where: { last_name: lastName }
-            });
-        } catch (error) {
-            console.error(`[CustomerRepository] Error getting customers by last name '${lastName}': ${error.message}`);
-            throw new Error(`Failed to get customers by last name: ${error.message}`);
-        }
-    }
-
-    /**
-     * Retrieves a list of Customer entities whose first name and last name both match the given parameters.
-     * @param {string} firstName - The first name to search for.
-     * @param {string} lastName - The last name to search for.
-     * @returns {Promise<Array<object>>} A list of matching Customer entities.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomersByFullName(firstName, lastName) {
-        try {
-            return await this.Customer.findAll({
-                where: {
-                    first_name: firstName,
-                    last_name: lastName
-                }
-            });
-        } catch (error) {
-            console.error(`[CustomerRepository] Error getting customers by full name '${firstName} ${lastName}': ${error.message}`);
-            throw new Error(`Failed to get customers by full name: ${error.message}`);
-        }
-    }
-
-    /**
-     * Retrieves a single Customer entity by their `customer_id` (primary key).
-     * This is functionally equivalent to `findById`.
-     * @param {number} id - The customer's ID.
-     * @returns {Promise<object|null>} The Customer entity if found, otherwise null.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomerByCustomerId(id) {
-        // Functionally identical to findById(id)
-        return this.findById(id);
-    }
-
-    /**
-     * Retrieves a single Customer entity by their email address.
-     * This is functionally equivalent to `getCustomerByUsername`.
-     * @param {string} email - The customer's email address.
-     * @returns {Promise<object|null>} The Customer entity if found, otherwise null.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomerByEmail(email) {
-        // Functionally identical to getCustomerByUsername(email)
-        return this.getCustomerByUsername(email);
-    }
-
-    /**
-     * Returns the total number of records in the `customer` table.
-     * This is functionally equivalent to `count()`.
-     * @returns {Promise<number>} The total count of customers.
-     * @throws {Error} If there is a database error.
-     */
-    async getCustomerCount() {
-        // Functionally identical to count()
-        return this.count();
-    }
-}
-
-// --- Export the Repository Instance ---
-const customerRepository = new CustomerRepository(Customer);
-
-module.exports = {
-    sequelize, // Export sequelize instance for potential external use (e.g., syncing models)
-    Customer,  // Export Customer model for potential external use (e.g., associations)
-    customerRepository // Export the repository instance
-};
-
-// --- Example Usage (Optional - for testing purposes) ---
-/*
-(async () => {
-    try {
-        // Ensure tables are created/synced (use `alter: true` for migrations in dev)
-        await sequelize.sync({ alter: true });
-        console.log("Database synced.");
-
-        // 1. Create a new customer
-        const newCustomer = await customerRepository.save({
-            store_id: 1,
-            first_name: 'John',
-            last_name: 'Doe',
-            email: `john.doe.${Date.now()}@example.com`, // Unique email
-            address_id: 1 // Assuming address_id 1 exists
-        });
-        console.log('Created customer:', newCustomer.toJSON());
-
-        // 2. Find by ID
-        const foundCustomer = await customerRepository.findById(newCustomer.customer_id);
-        console.log('Found customer by ID:', foundCustomer ? foundCustomer.toJSON() : 'Not found');
-
-        // 3. Find by email (username)
-        const customerByEmail = await customerRepository.getCustomerByEmail(newCustomer.email);
-        console.log('Found customer by email:', customerByEmail ? customerByEmail.toJSON() : 'Not found');
-
-        // 4. Find by credentials (demonstrates the unusual password usage)
-        const customerByCreds = await customerRepository.getCustomerByCredentials(newCustomer.email, newCustomer.customer_id);
-        console.log('Found customer by credentials:', customerByCreds ? customerByCreds.toJSON() : 'Not found');
-
-        // 5. Get customers by first name
-        const customersByFirstName = await customerRepository.getCustomersByFirstName('John');
-        console.log('Customers by first name "John":', customersByFirstName.map(c => c.toJSON()));
-
-        // 6. Get total count
-        const totalCustomers = await customerRepository.getCustomerCount();
-        console.log('Total customers:', totalCustomers);
-
-        // 7. Check existence
-        const exists = await customerRepository.existsById(newCustomer.customer_id);
-        console.log(`Customer with ID ${newCustomer.customer_id} exists:`, exists);
-
-        // 8. Update customer
-        newCustomer.email = `john.doe.updated.${Date.now()}@example.com`;
-        const updatedCustomer = await customerRepository.save(newCustomer.toJSON());
-        console.log('Updated customer:', updatedCustomer.toJSON());
-
-        // 9. Delete customer
-        const deletedRows = await customerRepository.deleteById(newCustomer.customer_id);
-        console.log(`Deleted ${deletedRows} customer(s) with ID ${newCustomer.customer_id}`);
-
-        // 10. Verify deletion
-        const deletedCustomer = await customerRepository.findById(newCustomer.customer_id);
-        console.log('Found deleted customer by ID:', deletedCustomer ? deletedCustomer.toJSON() : 'Not found');
-
-    } catch (error) {
-        console.error('An error occurred during example usage:', error);
-    } finally {
-        await sequelize.close();
-        console.log("Database connection closed.");
-    }
-})();
-*/
+module.exports = db;
 ```
+
+---
+
+### 4. `src/repositories/customer.repository.js`
+
+This file contains the `CustomerRepository` class, which implements all the methods from the original Java `CustomerRepository` using Sequelize.
+
+```javascript
+// src/repositories/customer.repository.js
+const db = require('../index'); // Import the initialized Sequelize instance and models
+const Customer = db.Customer;
+const { Op } = db.Sequelize; // Import Sequelize operators for advanced queries
+
+/**
+ * @typedef {object} CustomerData
+ * @property {number} [customer_id] - The unique ID of the customer (primary key).
+ * @property {number} store_id - The ID of the store the customer belongs to.
+ * @property {string} first_name - The first name of the customer.
+ * @property {string} last_name - The last name of the customer.
+ * @property {string} [email] - The email address of the customer.
+ * @property {number} address_

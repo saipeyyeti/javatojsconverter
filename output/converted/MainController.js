@@ -1,320 +1,371 @@
 ```javascript
 /**
- * @file This file defines the main Express.js application, mirroring the functionality
- *       of the Java MainController by handling incoming HTTP GET requests and
- *       rendering corresponding view templates. It uses Express.js for routing,
- *       EJS as the templating engine, and incorporates asynchronous operations,
- *       comprehensive JSDoc comments, and robust error handling.
- * @module app
+ * @file This is the main entry point for the Node.js Express application.
+ * It sets up the Express server, configures middleware, defines routes,
+ * and handles global error management.
  */
 
 // Import necessary modules
 const express = require('express');
-const path = require('path'); // Node.js built-in module for working with file and directory paths
+const path = require('path');
+const mainRoutes = require('./routes/mainRoutes'); // Import the main routes
 
-// Create an Express application instance
+// Initialize the Express application
 const app = express();
 
-// Define the port for the server to listen on.
-// It first tries to use the PORT environment variable (common in hosting environments),
-// otherwise, it defaults to 3000 for local development.
+/**
+ * @constant {number} PORT - The port number on which the server will listen.
+ * Defaults to 3000 if not specified in environment variables.
+ */
 const PORT = process.env.PORT || 3000;
 
-// --- Configuration ---
+// --- Middleware Configuration ---
 
 /**
- * Configures the view engine for the Express application.
- * EJS (Embedded JavaScript) is chosen as the templating engine, which allows for
- * dynamic content rendering within HTML-like templates.
- *
- * @property {string} 'view engine' - Specifies 'ejs' as the templating engine.
- * @property {string} 'views' - Sets the directory where view templates are located.
- *                               `path.join(__dirname, 'views')` ensures a platform-independent
- *                               path to the 'views' folder relative to this script.
+ * Configure the view engine.
+ * We'll use EJS (Embedded JavaScript) as the templating engine,
+ * similar to how Spring's View Resolver finds templates.
+ * Views will be located in the 'views' directory.
  */
 app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 
-// --- Middleware ---
-
 /**
- * Global middleware for logging incoming HTTP requests.
- * This helps in debugging and monitoring server activity.
- *
- * @function
- * @param {object} req - The Express request object, containing details about the incoming request.
- * @param {object} res - The Express response object, used to send responses back to the client.
- * @param {function} next - A callback function to pass control to the next middleware function
- *                          in the stack.
+ * Middleware to parse incoming JSON requests.
+ * This is useful for API endpoints, though not strictly needed for this
+ * view-serving controller, it's a common best practice.
  */
-app.use((req, res, next) => {
-    console.log(`${new Date().toISOString()} - ${req.method} ${req.originalUrl}`);
-    next(); // Call next to proceed to the next middleware or route handler
-});
-
-// --- Routes ---
+app.use(express.json());
 
 /**
- * Handles HTTP GET requests to the application's root URL (`/`).
- * This route mirrors the `home()` method in the Java `MainController`.
- * It renders the 'home' view template, typically serving as the application's landing page.
- *
- * @async
- * @function
- * @param {object} req - The Express request object.
- * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function, used for passing errors.
- * @returns {Promise<void>} A promise that resolves when the view is successfully rendered.
- * @throws {Error} If an error occurs during view rendering or any asynchronous operation.
+ * Middleware to parse incoming URL-encoded requests.
+ * `extended: true` allows for rich objects and arrays to be encoded into the URL-encoded format.
+ * This is useful for handling form submissions.
  */
-app.get('/', async (req, res, next) => {
-    try {
-        // In a more complex application, this is where you might fetch data
-        // from a database or an external API using 'await'.
-        // Example: const data = await someService.getHomePageData();
-        res.render('home', { title: 'Welcome Home' }); // Renders 'views/home.ejs'
-    } catch (error) {
-        // If any error occurs (e.g., during data fetching or rendering),
-        // pass it to the error handling middleware.
-        next(error);
-    }
-});
+app.use(express.urlencoded({ extended: true }));
 
 /**
- * Handles HTTP GET requests to the `/login` URL.
- * This route mirrors the `login()` method in the Java `MainController`.
- * It renders the 'login' view template, typically displaying a login form.
- *
- * @async
- * @function
- * @param {object} req - The Express request object.
- * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function, used for passing errors.
- * @returns {Promise<void>} A promise that resolves when the view is successfully rendered.
- * @throws {Error} If an error occurs during view rendering or any asynchronous operation.
+ * Middleware to serve static files (e.g., CSS, JavaScript, images).
+ * Files in the 'public' directory will be accessible directly.
+ * Example: `http://localhost:3000/css/style.css` would serve `public/css/style.css`.
  */
-app.get('/login', async (req, res, next) => {
-    try {
-        res.render('login', { title: 'User Login' }); // Renders 'views/login.ejs'
-    } catch (error) {
-        next(error);
-    }
-});
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- Route Handling ---
 
 /**
- * Handles HTTP GET requests to the `/account` URL.
- * This route mirrors the `account()` method in the Java `MainController`.
- * It renders the 'account' view template, intended for a user's account dashboard or profile page.
- *
- * @async
- * @function
- * @param {object} req - The Express request object.
- * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function, used for passing errors.
- * @returns {Promise<void>} A promise that resolves when the view is successfully rendered.
- * @throws {Error} If an error occurs during view rendering or any asynchronous operation.
+ * Mount the main routes.
+ * All routes defined in `mainRoutes.js` will be prefixed with '/'.
+ * In this case, the routes are defined directly as '/', '/login', '/account',
+ * so they will be accessible at those paths.
  */
-app.get('/account', async (req, res, next) => {
-    try {
-        res.render('account', { title: 'My Account' }); // Renders 'views/account.ejs'
-    } catch (error) {
-        next(error);
-    }
-});
+app.use('/', mainRoutes);
 
-// --- Error Handling Middleware ---
+// --- Global Error Handling Middleware ---
 
 /**
- * Middleware to handle 404 Not Found errors.
- * This middleware should be placed after all defined routes. If a request reaches
- * this point, it means no preceding route handler has responded.
- *
- * @function
- * @param {object} req - The Express request object.
- * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function (not typically called here for 404).
- */
-app.use((req, res, next) => {
-    // Set the status to 404 and render a custom 404 page.
-    res.status(404).render('404', {
-        title: 'Page Not Found',
-        message: `The page you are looking for at "${req.originalUrl}" does not exist.`
-    });
-});
-
-/**
- * Global error handling middleware.
- * This is the final error handler in the middleware chain. It catches any errors
+ * @function globalErrorHandler
+ * @description Express error handling middleware. This function catches any errors
  * passed via `next(error)` from route handlers or other middleware.
- *
- * @function
- * @param {Error} err - The error object passed from a preceding middleware or route.
+ * It sends a standardized error response to the client.
+ * @param {Error} err - The error object.
  * @param {object} req - The Express request object.
  * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function (not typically called here as it's a final handler).
+ * @param {function} next - The next middleware function in the stack.
  */
 app.use((err, req, res, next) => {
-    console.error('An unhandled error occurred:', err.stack); // Log the full error stack for debugging
+    console.error('Global Error Handler:', err.stack); // Log the error stack for debugging
 
-    // Determine the HTTP status code. Default to 500 (Internal Server Error).
+    // Determine the status code (default to 500 Internal Server Error)
     const statusCode = err.statusCode || 500;
 
-    // Render a generic error page.
-    // In development mode, provide more error details; in production, keep it minimal for security.
-    res.status(statusCode).render('error', {
-        title: 'Error',
-        message: 'Something went wrong on our server. Please try again later.',
-        // Only expose error details in development environment
-        error: process.env.NODE_ENV === 'development' ? err : {}
-    });
+    // Send an error response. For view-serving, we might render an error page.
+    // For simplicity, we'll send a JSON response or render a generic error view.
+    if (req.accepts('html')) {
+        // If the client prefers HTML, render an error page
+        res.status(statusCode).render('error', {
+            title: 'Error',
+            message: err.message || 'Something went wrong!',
+            statusCode: statusCode
+        });
+    } else {
+        // Otherwise, send a JSON response
+        res.status(statusCode).json({
+            status: 'error',
+            message: err.message || 'Something went wrong!',
+            statusCode: statusCode
+        });
+    }
 });
 
 // --- Server Start ---
 
 /**
- * Starts the Express server and listens for incoming HTTP requests on the configured port.
- *
- * @function
+ * Start the Express server and listen for incoming requests on the specified port.
  */
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
-    console.log('To stop the server, press Ctrl+C.');
+    console.log('Press Ctrl+C to stop the server.');
 });
 
-// Export the app for testing purposes (optional, but good practice for modularity)
-module.exports = app;
-
+// --- Create a simple 'views/error.ejs' file for the error handler ---
+// You would typically have this file in your 'views' directory:
 /*
-To run this application:
-
-1.  **Initialize your project:**
-    Create a new directory (e.g., `my-express-app`).
-    Navigate into it: `cd my-express-app`
-    Initialize npm: `npm init -y`
-
-2.  **Install dependencies:**
-    `npm install express ejs`
-
-3.  **Create the main application file:**
-    Save the code above as `app.js` (or `server.js`) in your project root.
-
-4.  **Create a `views` directory and template files:**
-    Create a folder named `views` in the same directory as `app.js`.
-    Inside `views`, create the following files:
-
-    *   **`views/home.ejs`:**
-        ```html
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title><%= title %></title>
-        </head>
-        <body>
-            <h1>Welcome to the Home Page!</h1>
-            <p>This is the landing page of your application.</p>
-            <nav>
-                <ul>
-                    <li><a href="/login">Login</a></li>
-                    <li><a href="/account">Account</a></li>
-                </ul>
-            </nav>
-        </body>
-        </html>
-        ```
-
-    *   **`views/login.ejs`:**
-        ```html
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title><%= title %></title>
-        </head>
-        <body>
-            <h1><%= title %></h1>
-            <p>This is the login page.</p>
-            <form action="/login" method="POST">
-                <label for="username">Username:</label><br>
-                <input type="text" id="username" name="username"><br>
-                <label for="password">Password:</label><br>
-                <input type="password" id="password" name="password"><br><br>
-                <button type="submit">Login</button>
-            </form>
-            <p><a href="/">Back to Home</a></p>
-        </body>
-        </html>
-        ```
-
-    *   **`views/account.ejs`:**
-        ```html
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title><%= title %></title>
-        </head>
-        <body>
-            <h1><%= title %></h1>
-            <p>Welcome to your account dashboard!</p>
-            <p>This page would typically show user-specific information.</p>
-            <p><a href="/">Back to Home</a></p>
-        </body>
-        </html>
-        ```
-
-    *   **`views/404.ejs`:**
-        ```html
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title><%= title %></title>
-        </head>
-        <body>
-            <h1><%= title %></h1>
-            <p><%= message %></p>
-            <p><a href="/">Go to Home</a></p>
-        </body>
-        </html>
-        ```
-
-    *   **`views/error.ejs`:**
-        ```html
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title><%= title %></title>
-        </head>
-        <body>
-            <h1><%= message %></h1>
-            <% if (error.stack) { %>
-                <h2>Error Details:</h2>
-                <pre><%= error.stack %></pre>
-            <% } %>
-            <p><a href="/">Go to Home</a></p>
-        </body>
-        </html>
-        ```
-
-5.  **Run the application:**
-    `node app.js`
-
-    You should see output like:
-    `Server is running on http://localhost:3000`
-    `To stop the server, press Ctrl+C.`
-
-6.  **Access in browser:**
-    Open your web browser and navigate to:
-    *   `http://localhost:3000/` (for the home page)
-    *   `http://localhost:3000/login` (for the login page)
-    *   `http://localhost:3000/account` (for the account page)
-    *   `http://localhost:3000/nonexistent` (to test the 404 error page)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333; text-align: center; padding: 50px; }
+        .container { background-color: #fff; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; }
+        h1 { color: #d9534f; }
+        p { font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Error <%= statusCode %></h1>
+        <p><%= message %></p>
+        <p>Please try again later or contact support.</p>
+        <a href="/">Go to Home</a>
+    </div>
+</body>
+</html>
 */
 ```
+
+```javascript
+/**
+ * @file This module defines the main routes for the web application,
+ * mirroring the functionality of the Java MainController.
+ * It handles requests for the home page, login page, and account page.
+ */
+
+const express = require('express');
+const router = express.Router();
+
+/**
+ * @function homeController
+ * @description Handles GET requests to the root URL (`/`).
+ * Corresponds to the `home()` method in the Java controller.
+ * It renders the 'home' view.
+ * @param {object} req - The Express request object.
+ * @param {object} res - The Express response object.
+ * @param {function} next - The next middleware function in the stack.
+ * @returns {Promise<void>} A promise that resolves when the view is rendered or an error occurs.
+ */
+router.get('/', async (req, res, next) => {
+    try {
+        // Simulate a potential asynchronous operation if needed, e.g., fetching data
+        // await someAsyncOperation();
+
+        /**
+         * Renders the 'home.ejs' view.
+         * The `res.render()` method looks for 'home.ejs' in the configured 'views' directory.
+         * We can pass an object with data to the view if needed, e.g., `{ title: 'Welcome Home' }`.
+         */
+        res.render('home', { title: 'Home Page' });
+    } catch (error) {
+        // If an error occurs, pass it to the global error handling middleware
+        console.error('Error rendering home page:', error);
+        next(error);
+    }
+});
+
+/**
+ * @function loginController
+ * @description Handles GET requests to the `/login` URL.
+ * Corresponds to the `login()` method in the Java controller.
+ * It renders the 'login' view.
+ * @param {object} req - The Express request object.
+ * @param {object} res - The Express response object.
+ * @param {function} next - The next middleware function in the stack.
+ * @returns {Promise<void>} A promise that resolves when the view is rendered or an error occurs.
+ */
+router.get('/login', async (req, res, next) => {
+    try {
+        // Simulate a potential asynchronous operation
+        // await someAsyncOperation();
+
+        res.render('login', { title: 'Login Page' });
+    } catch (error) {
+        console.error('Error rendering login page:', error);
+        next(error);
+    }
+});
+
+/**
+ * @function accountController
+ * @description Handles GET requests to the `/account` URL.
+ * Corresponds to the `account()` method in the Java controller.
+ * It renders the 'account' view.
+ * @param {object} req - The Express request object.
+ * @param {object} res - The Express response object.
+ * @param {function} next - The next middleware function in the stack.
+ * @returns {Promise<void>} A promise that resolves when the view is rendered or an error occurs.
+ */
+router.get('/account', async (req, res, next) => {
+    try {
+        // Simulate a potential asynchronous operation
+        // await someAsyncOperation();
+
+        res.render('account', { title: 'Account Page' });
+    } catch (error) {
+        console.error('Error rendering account page:', error);
+        next(error);
+    }
+});
+
+/**
+ * @module mainRoutes
+ * @description Exports the configured Express router for use in the main application file.
+ */
+module.exports = router;
+```
+
+To make this code runnable, you'll need to set up the project structure and create the view files:
+
+**1. Project Structure:**
+
+```
+your-express-app/
+├── server.js
+├── routes/
+│   └── mainRoutes.js
+└── views/
+    ├── home.ejs
+    ├── login.ejs
+    ├── account.ejs
+    └── error.ejs (for global error handling)
+```
+
+**2. `package.json` (create this file in `your-express-app/`):**
+
+```json
+{
+  "name": "your-express-app",
+  "version": "1.0.0",
+  "description": "A Node.js Express application mirroring a Spring Boot controller.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": [
+    "node",
+    "express",
+    "mvc",
+    "controller",
+    "ejs"
+  ],
+  "author": "Your Name",
+  "license": "ISC",
+  "dependencies": {
+    "ejs": "^3.1.9",
+    "express": "^4.18.2"
+  }
+}
+```
+
+**3. Install Dependencies:**
+Navigate to `your-express-app/` in your terminal and run:
+`npm install`
+
+**4. Create View Files (e.g., `views/home.ejs`):**
+
+**`views/home.ejs`:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <link rel="stylesheet" href="/css/style.css"> <!-- Example for static file -->
+</head>
+<body>
+    <h1>Welcome to the Home Page!</h1>
+    <p>This is the content for the home view.</p>
+    <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/login">Login</a></li>
+        <li><a href="/account">Account</a></li>
+    </ul>
+</body>
+</html>
+```
+
+**`views/login.ejs`:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+</head>
+<body>
+    <h1>Login Page</h1>
+    <p>Please enter your credentials.</p>
+    <form action="/login" method="POST">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username"><br><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password"><br><br>
+        <button type="submit">Login</button>
+    </form>
+    <p><a href="/">Go to Home</a></p>
+</body>
+</html>
+```
+
+**`views/account.ejs`:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+</head>
+<body>
+    <h1>Account Details</h1>
+    <p>This is your personal account information.</p>
+    <p>Welcome, User!</p>
+    <p><a href="/">Go to Home</a></p>
+</body>
+</html>
+```
+
+**`views/error.ejs`:**
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %></title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; color: #333; text-align: center; padding: 50px; }
+        .container { background-color: #fff; margin: 0 auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); max-width: 600px; }
+        h1 { color: #d9534f; }
+        p { font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Error <%= statusCode %></h1>
+        <p><%= message %></p>
+        <p>Please try again later or contact support.</p>
+        <a href="/">Go to Home</a>
+    </div>
+</body>
+</html>
+```
+
+**5. Run the Application:**
+In your terminal, from the `your-express-app/` directory:
+`npm start`
+
+Now, you can access `http://localhost:3000/`, `http://localhost:3000/login`, and `http://localhost:3000/account` in your web browser.

@@ -1,89 +1,120 @@
 ```javascript
+// --- services/categoryService.js ---
 /**
- * @module CategoryController
- * @description Handles web requests related to Category entities within the Sakila project.
- * This controller follows the Model-View-Controller (MVC) pattern and leverages Express.js
- * for routing and middleware. It orchestrates data retrieval from service layers and
- * prepares data for view rendering.
+ * @class CategoryService
+ * @description Provides business logic and data access operations for Category entities.
+ *              This is a mock service for demonstration purposes.
  */
-
-const express = require('express');
-const router = express.Router();
-
-// Import service modules. These would typically be located in a 'services' directory.
-// We assume these services handle the actual business logic and data access.
-const categoryService = require('../services/categoryService');
-const filmService = require('../services/filmService');
-
-/**
- * Handles HTTP GET requests to the `/categories` endpoint.
- * Displays a list of all available categories.
- *
- * @function getCategories
- * @param {object} req - The Express request object.
- * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function in the stack.
- * @returns {void} Renders the 'categories/categories' view with a list of all categories.
- * @throws {Error} If there's an issue retrieving categories, the error is passed to the next middleware.
- */
-router.get('/categories', async (req, res, next) => {
-    try {
-        const allCategories = await categoryService.getAllCategories();
-        // In Express, data is passed to the view directly in the render method.
-        // The view engine (e.g., EJS, Pug, Handlebars) will then use this data.
-        res.render('categories/categories', { allCategories: allCategories });
-    } catch (error) {
-        console.error('Error fetching all categories:', error);
-        // Pass the error to the next middleware (e.g., a global error handler)
-        next(error);
-    }
-});
-
-/**
- * Handles HTTP GET requests to the `/categories/details` endpoint.
- * Expects a `category` ID as a request query parameter.
- * Displays detailed information for a specific category, including associated films.
- *
- * @function getCategoryDetails
- * @param {object} req - The Express request object.
- * @param {object} res - The Express response object.
- * @param {function} next - The next middleware function in the stack.
- * @returns {void} Renders the 'categories/categoryDetails' view with category and film data,
- *                 or sends a 404 if the category is not found.
- * @throws {Error} If there's an issue retrieving category or film data, the error is passed to the next middleware.
- */
-router.get('/categories/details', async (req, res, next) => {
-    const categoryId = parseInt(req.query.id, 10); // Parse ID from query parameter
-
-    // Basic validation for the ID
-    if (isNaN(categoryId) || categoryId <= 0) {
-        return res.status(400).render('error', { message: 'Invalid category ID provided.' });
+class CategoryService {
+    /**
+     * Retrieves all categories from the data source.
+     * @returns {Promise<Array<Object>>} A promise that resolves to an array of category objects.
+     * @throws {Error} If there's an issue retrieving data.
+     */
+    async getAllCategories() {
+        // Simulate async database call
+        return new Promise(resolve => {
+            setTimeout(() => {
+                console.log('[CategoryService] Fetching all categories...');
+                resolve([
+                    { category_id: 1, name: 'Action' },
+                    { category_id: 2, name: 'Comedy' },
+                    { category_id: 3, name: 'Drama' },
+                    { category_id: 4, name: 'Horror' },
+                    { category_id: 5, name: 'Sci-Fi' },
+                ]);
+            }, 100); // Simulate network/DB latency
+        });
     }
 
-    try {
-        const category = await categoryService.getByCategoryId(categoryId);
-
-        if (!category) {
-            // If category is not found, send a 404 response
-            return res.status(404).render('404', { message: `Category with ID ${categoryId} not found.` });
-        }
-
-        const films = await filmService.getFilmsByCategory(categoryId);
-
-        // Render the details view with both category and film data
-        res.render('categories/categoryDetails', { category: category, films: films });
-    } catch (error) {
-        console.error(`Error fetching details for category ID ${categoryId}:`, error);
-        // Pass the error to the next middleware
-        next(error);
+    /**
+     * Retrieves a category by its ID.
+     * @param {number} id - The ID of the category to retrieve.
+     * @returns {Promise<Object|null>} A promise that resolves to the category object or null if not found.
+     * @throws {Error} If there's an issue retrieving data.
+     */
+    async getByCategoryId(id) {
+        // Simulate async database call
+        return new Promise(resolve => {
+            setTimeout(() => {
+                console.log(`[CategoryService] Fetching category by ID: ${id}...`);
+                const categories = [
+                    { category_id: 1, name: 'Action' },
+                    { category_id: 2, name: 'Comedy' },
+                    { category_id: 3, name: 'Drama' },
+                    { category_id: 4, name: 'Horror' },
+                    { category_id: 5, name: 'Sci-Fi' },
+                ];
+                resolve(categories.find(cat => cat.category_id === id) || null);
+            }, 100); // Simulate network/DB latency
+        });
     }
-});
+}
 
-// The Java `getCategoryById` method, which was not a web endpoint,
-// is now implicitly handled by `categoryService.getByCategoryId(id)`.
-// In Node.js, such a method would reside solely within the service layer
-// as it represents business logic, not a direct web request handler.
-// The controller delegates to the service for this functionality.
+// Export an instance of the service to be used as a singleton
+module.exports = new CategoryService();
 
-module.exports = router;
-```
+
+// --- services/filmService.js ---
+/**
+ * @class FilmService
+ * @description Provides business logic and data access operations for Film entities.
+ *              This is a mock service for demonstration purposes.
+ */
+class FilmService {
+    /**
+     * Retrieves all films associated with a specific category ID.
+     * @param {number} categoryId - The ID of the category.
+     * @returns {Promise<Array<Object>>} A promise that resolves to an array of film objects.
+     * @throws {Error} If there's an issue retrieving data.
+     */
+    async getFilmsByCategory(categoryId) {
+        // Simulate async database call
+        return new Promise(resolve => {
+            setTimeout(() => {
+                console.log(`[FilmService] Fetching films for category ID: ${categoryId}...`);
+                const allFilms = {
+                    1: [ // Action
+                        { film_id: 101, title: 'The Great Escape', description: 'An action-packed thriller.' },
+                        { film_id: 102, title: 'Mission Impossible', description: 'High-stakes espionage.' },
+                    ],
+                    2: [ // Comedy
+                        { film_id: 201, title: 'Funny Business', description: 'A hilarious comedy.' },
+                    ],
+                    3: [ // Drama
+                        { film_id: 301, title: 'Life\'s Journey', description: 'An emotional drama.' },
+                        { film_id: 302, title: 'The Silent Witness', description: 'An intense courtroom drama.' },
+                    ],
+                    4: [ // Horror
+                        { film_id: 401, title: 'Nightmare Alley', description: 'Spooky and terrifying.' },
+                    ],
+                    5: [ // Sci-Fi
+                        { film_id: 501, title: 'Star Explorers', description: 'Journey through space.' },
+                        { film_id: 502, title: 'Future Shock', description: 'Dystopian future.' },
+                    ]
+                };
+                resolve(allFilms[categoryId] || []);
+            }, 100); // Simulate network/DB latency
+        });
+    }
+}
+
+// Export an instance of the service to be used as a singleton
+module.exports = new FilmService();
+
+
+// --- utils/errors.js ---
+/**
+ * @class CustomError
+ * @augments Error
+ * @description A custom error class for consistent error handling in the application.
+ *              It allows attaching an HTTP status code and an original error object.
+ */
+class CustomError extends Error {
+    /**
+     * Creates an instance of CustomError.
+     * @param {string} message - The error message.
+     * @param {number} [statusCode=500] - The HTTP status code associated with the error.
+     * @param {Error} [originalError=null] - The original error object, if any, that caused this custom error.
+     */
+    constructor(message, statusCode

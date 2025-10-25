@@ -1,214 +1,339 @@
 ```javascript
-import bcrypt from 'bcryptjs'; // Using bcryptjs for password hashing
-import { UsernameNotFoundException } from '../errors/UsernameNotFoundException'; // Custom exception for user not found
+// userDetailsService.js
+
+// Import bcryptjs for password hashing.
+// In a real Node.js project, you would install it via npm: `npm install bcryptjs`
+const bcrypt = require('bcryptjs');
 
 /**
  * @typedef {object} Customer
  * @property {number} customerId - The unique ID of the customer.
  * @property {string} email - The email address of the customer.
- * // Add other customer properties as needed
+ * @property {string} [firstName] - The first name of the customer.
+ * @property {string} [lastName] - The last name of the customer.
+ * // In a real system, a customer would also have a hashed password field.
  */
 
 /**
  * @typedef {object} Staff
+ * @property {number} staffId - The unique ID of the staff member.
  * @property {string} username - The username of the staff member.
  * @property {string} password - The hashed password of the staff member.
- * // Add other staff properties as needed
+ * @property {string} [firstName] - The first name of the staff member.
+ * @property {string} [lastName] - The last name of the staff member.
  */
 
 /**
  * @typedef {object} UserDetails
- * @property {string} username - The username of the authenticated user.
- * @property {string} password - The hashed password of the authenticated user.
+ * @property {string} username - The username of the user.
+ * @property {string} password - The hashed password of the user.
  * @property {string[]} roles - An array of roles/authorities assigned to the user (e.g., "ADMIN", "USER").
- * // Add other user details properties as needed (e.g., enabled, accountNonExpired, etc. if needed by auth framework)
+ * // Additional fields like enabled, accountNonExpired, etc., could be added for full Spring Security parity.
  */
 
 /**
- * @interface CustomerRepository
- * @description Interface for interacting with customer data.
+ * Custom error class for when a username is not found.
+ * This is analogous to Spring Security's `UsernameNotFoundException`.
  */
-/**
- * @function CustomerRepository.getCustomerByEmail
- * @param {string} email - The email of the customer to find.
- * @returns {Promise<Customer|null>} A promise that resolves to the customer object or null if not found.
- */
+class UsernameNotFoundException extends Error {
+    /**
+     * Creates an instance of UsernameNotFoundException.
+     * @param {string} message - The error message.
+     */
+    constructor(message) {
+        super(message);
+        this.name = 'UsernameNotFoundException';
+        // Ensure the stack trace is captured correctly in V8
+        if (Error.captureStackTrace) {
+            Error.captureStackTrace(this, UsernameNotFoundException);
+        }
+    }
+}
 
 /**
- * @interface StaffRepository
- * @description Interface for interacting with staff data.
+ * A mock CustomerRepository for demonstration purposes.
+ * In a real application, this would interact with a database (e.g., using an ORM like Sequelize or Mongoose).
  */
-/**
- * @function StaffRepository.getStaffByUsername
- * @param {string} username - The username of the staff member to find.
- * @returns {Promise<Staff|null>} A promise that resolves to the staff object or null if not found.
- */
+class CustomerRepository {
+    constructor() {
+        // Mock data for customers
+        this.customers = [
+            { customerId: 101, email: 'customer1@example.com', firstName: 'John', lastName: 'Doe' },
+            { customerId: 102, email: 'customer2@example.com', firstName: 'Jane', lastName: 'Smith' },
+        ];
+    }
+
+    /**
+     * Retrieves a customer by their email address.
+     * @param {string} email - The email address of the customer.
+     * @returns {Promise<Customer|null>} A promise that resolves with the customer object or null if not found.
+     */
+    async getCustomerByEmail(email) {
+        // Simulate an asynchronous database call
+        return new Promise(resolve => {
+            setTimeout(() => {
+                const customer = this.customers.find(c => c.email === email);
+                resolve(customer || null);
+            }, 50); // Simulate network latency
+        });
+    }
+}
 
 /**
- * @class UserDetailsServiceImpl
- * @description A service responsible for loading user details for authentication.
- * It acts as the bridge between the application's user data (customers and staff)
- * and an authentication mechanism (e.g., Passport.js or a custom middleware).
- * This class implements the core logic similar to Spring Security's UserDetailsService.
+ * A mock StaffRepository for demonstration purposes.
+ * In a real application, this would interact with a database.
+ */
+class StaffRepository {
+    /**
+     * @param {object} passwordEncoder - An object with a `hashSync` method for pre-hashing mock passwords.
+     */
+    constructor(passwordEncoder) {
+        this.passwordEncoder = passwordEncoder;
+        // Mock data for staff members. Passwords should be pre-hashed in a real database.
+        this.staffMembers = [
+            { staffId: 1, username: 'admin', password: this.passwordEncoder.hashSync('adminpass', 10), firstName: 'Admin', lastName: 'User' },
+            { staffId: 2, username: 'staffuser', password: this.passwordEncoder.hashSync('staffpass', 10), firstName: 'Staff', lastName: 'Member' },
+        ];
+    }
+
+    /**
+     * Retrieves a staff member by their username.
+     * @param {string} username - The username of the staff member.
+     * @returns {Promise<Staff|null>} A promise that resolves with the staff object or null if not found.
+     */
+    async getStaffByUsername(username) {
+        // Simulate an asynchronous database call
+        return new Promise(resolve => {
+            setTimeout(() => {
+                const staff = this.staffMembers.find(s => s.username === username);
+                resolve(staff || null);
+            }, 50); // Simulate network latency
+        });
+    }
+}
+
+/**
+ * This service is a crucial component in an authentication setup, responsible for loading user-specific data
+ * during the authentication process. It supports two distinct user types: `Customer` and `Staff`.
+ *
+ * This class implements the core logic analogous to Spring Security's `UserDetailsService` interface.
  */
 class UserDetailsServiceImpl {
     /**
-     * @private
-     * @type {CustomerRepository}
-     */
-    customerRepository;
-
-    /**
-     * @private
-     * @type {StaffRepository}
-     */
-    staffRepository;
-
-    /**
      * Creates an instance of UserDetailsServiceImpl.
-     * @param {CustomerRepository} customerRepository - The repository for customer data.
-     * @param {StaffRepository} staffRepository - The repository for staff data.
+     * Dependencies are injected via the constructor, following Node.js best practices for modularity and testability.
+     *
+     * @param {CustomerRepository} customerRepository - The repository for accessing customer data.
+     * @param {StaffRepository} staffRepository - The repository for accessing staff data.
+     * @param {object} passwordEncoder - An object providing password hashing and comparison functionality.
+     *                                   It should have `hash(password, saltRounds)` and `compare(password, hash)` methods.
+     *                                   (e.g., `bcryptjs` module).
+     * @param {number} [saltRounds=10] - The number of salt rounds to use for bcrypt hashing.
      */
-    constructor(customerRepository, staffRepository) {
-        if (!customerRepository || !staffRepository) {
-            throw new Error('CustomerRepository and StaffRepository must be provided.');
+    constructor(customerRepository, staffRepository, passwordEncoder, saltRounds = 10) {
+        if (!customerRepository || !staffRepository || !passwordEncoder) {
+            throw new Error('UserDetailsServiceImpl: CustomerRepository, StaffRepository, and passwordEncoder are required dependencies.');
         }
+        if (typeof passwordEncoder.hash !== 'function' || typeof passwordEncoder.compare !== 'function') {
+            throw new Error('UserDetailsServiceImpl: passwordEncoder must provide hash and compare methods.');
+        }
+
         this.customerRepository = customerRepository;
         this.staffRepository = staffRepository;
+        this.passwordEncoder = passwordEncoder;
+        this.saltRounds = saltRounds;
     }
 
     /**
-     * Loads user details by a given username (which can be an email for customers or a username for staff).
-     * This method is the central point for fetching user credentials and roles for authentication.
+     * Loads user-specific data by username during the authentication process.
+     * This is the core method for retrieving user details, attempting to find the user
+     * as either a customer (by email) or a staff member (by username).
      *
-     * @async
-     * @param {string} anyUsername - The username or email used to identify the user.
-     * @returns {Promise<UserDetails>} A promise that resolves to a UserDetails object containing
-     *                                  the user's username, hashed password, and roles.
-     * @throws {UsernameNotFoundException} If no user (customer or staff) is found with the given identifier.
-     * @throws {Error} For any unexpected errors during data retrieval or password hashing.
+     * @param {string} anyUsername - The username provided by the user attempting to log in.
+     *                               This could be a customer's email or a staff member's username.
+     * @returns {Promise<UserDetails>} A promise that resolves with a `UserDetails` object
+     *                                  containing the username, hashed password, and assigned roles.
+     * @throws {UsernameNotFoundException} If no user (neither customer nor staff) with the given `anyUsername` is found.
+     * @throws {Error} For other unexpected errors that occur during data retrieval or password processing.
      */
     async loadUserByUsername(anyUsername) {
-        if (!anyUsername) {
-            throw new UsernameNotFoundException('Username cannot be empty.');
-        }
-
-        let customer = null;
-        let staff = null;
-
         try {
-            // Attempt to find a customer by email and a staff by username concurrently
-            [customer, staff] = await Promise.all([
+            // Attempt to find a customer by email and a staff member by username concurrently.
+            const [customer, staff] = await Promise.all([
                 this.customerRepository.getCustomerByEmail(anyUsername),
                 this.staffRepository.getStaffByUsername(anyUsername)
             ]);
-        } catch (error) {
-            // Log the error for debugging purposes
-            console.error(`Error fetching user from repositories: ${error.message}`);
-            // Re-throw a generic error or a more specific one if needed
-            throw new Error('Failed to retrieve user details due to a database error.');
-        }
 
-        if (!customer && !staff) {
-            throw new UsernameNotFoundException('Could not find user with the provided identifier.');
-        }
-
-        let userDetails = {
-            username: anyUsername,
-            password: '', // Will be hashed
-            roles: []
-        };
-
-        try {
-            if (staff) {
-                // If a staff member is found, assign ADMIN role and hash their password
-                userDetails.password = await bcrypt.hash(staff.password, 10); // Salt rounds = 10
-                userDetails.roles.push('ADMIN');
-            } else if (customer) {
-                // If a customer is found (and no staff), assign USER role.
-                // Note: The original Java code uses customerId as password.
-                // In a real-world scenario, customers should have a dedicated password field.
-                userDetails.password = await bcrypt.hash(String(customer.customerId), 10); // Salt rounds = 10
-                userDetails.roles.push('USER');
+            // If neither a customer nor a staff member is found, throw an exception.
+            if (!customer && !staff) {
+                throw new UsernameNotFoundException(`Could not find user with username: "${anyUsername}"`);
             }
+
+            /** @type {UserDetails} */
+            let userDetails = {
+                username: anyUsername,
+                password: '', // Will be set based on user type
+                roles: [],    // Will be set based on user type
+            };
+
+            // Prioritize staff members if a match is found.
+            if (staff) {
+                userDetails.password = staff.password; // Staff passwords are assumed to be pre-hashed in the DB.
+                userDetails.roles = ['ADMIN'];
+            } else {
+                // If no staff member is found, a customer must have been found (due to the check above).
+                /**
+                 * @critical_security_vulnerability
+                 * The original Java analysis highlights this: using `String.valueOf(customer.getCustomerId())`
+                 * as the password for customers is a significant security vulnerability. Customer IDs are
+                 * typically sequential and easily guessable/discoverable.
+                 *
+                 * In a production system, customers should have a proper password field,
+                 * which would be stored securely (hashed) in the database.
+                 *
+                 * For direct translation as per requirements, we hash the customer ID here.
+                 */
+                userDetails.password = await this.passwordEncoder.hash(String(customer.customerId), this.saltRounds);
+                userDetails.roles = ['USER'];
+            }
+
+            return userDetails;
+
         } catch (error) {
-            console.error(`Error hashing password for user ${anyUsername}: ${error.message}`);
-            throw new Error('Failed to process user credentials.');
+            // Re-throw `UsernameNotFoundException` directly as it's an expected authentication failure.
+            if (error instanceof UsernameNotFoundException) {
+                throw error;
+            }
+            // Log and re-throw other unexpected errors for better debugging and context.
+            console.error(`[UserDetailsServiceImpl] Error loading user "${anyUsername}":`, error);
+            throw new Error(`Failed to load user details for "${anyUsername}" due to an internal error.`);
         }
-
-        return userDetails;
     }
 }
 
-export { UserDetailsServiceImpl, UsernameNotFoundException };
+// --- Dependency Injection Setup and Example Usage ---
+// In a real Node.js application, you would typically set up your dependencies
+// in a central configuration file or using a dedicated dependency injection container.
 
-// --- Example Usage (for demonstration, not part of the production service itself) ---
-// To make this production-ready, you would typically have actual repository implementations
-// and an authentication framework (like Passport.js) that consumes this service.
+// 1. Configure and instantiate the password encoder.
+// We're creating an object that wraps bcryptjs methods to match the expected interface.
+const saltRounds = 10;
+const passwordEncoder = {
+    /**
+     * Hashes a password using bcrypt.
+     * @param {string} password - The plain-text password.
+     * @param {number} rounds - The number of salt rounds.
+     * @returns {Promise<string>} A promise that resolves with the hashed password.
+     */
+    hash: (password, rounds) => bcrypt.hash(password, rounds),
+    /**
+     * Compares a plain-text password with a hashed password.
+     * @param {string} password - The plain-text password.
+     * @param {string} hash - The hashed password.
+     * @returns {Promise<boolean>} A promise that resolves with true if passwords match, false otherwise.
+     */
+    compare: (password, hash) => bcrypt.compare(password, hash),
+    /**
+     * Synchronously hashes a password (used here for mock data initialization).
+     * @param {string} password - The plain-text password.
+     * @param {number} rounds - The number of salt rounds.
+     * @returns {string} The hashed password.
+     */
+    hashSync: (password, rounds) => bcrypt.hashSync(password, rounds)
+};
 
-/*
-// Mock Repositories for demonstration purposes
-class MockCustomerRepository {
-    async getCustomerByEmail(email) {
-        if (email === 'customer@example.com') {
-            return { customerId: 123, email: 'customer@example.com', name: 'John Doe' };
-        }
-        return null;
-    }
-}
+// 2. Instantiate repositories.
+const customerRepository = new CustomerRepository();
+// Pass the passwordEncoder to StaffRepository for pre-hashing mock staff passwords.
+const staffRepository = new StaffRepository(passwordEncoder);
 
-class MockStaffRepository {
-    async getStaffByUsername(username) {
-        if (username === 'admin_user') {
-            // In a real app, this password would already be hashed in the DB
-            return { username: 'admin_user', password: 'adminpassword123', name: 'Jane Smith' };
-        }
-        return null;
-    }
-}
+// 3. Instantiate the UserDetailsService with its dependencies.
+const userDetailsService = new UserDetailsServiceImpl(
+    customerRepository,
+    staffRepository,
+    passwordEncoder,
+    saltRounds
+);
 
-// Example of how to instantiate and use the service
-async function runExample() {
-    const customerRepo = new MockCustomerRepository();
-    const staffRepo = new MockStaffRepository();
-    const userDetailsService = new UserDetailsServiceImpl(customerRepo, staffRepo);
+// --- Test Cases (Self-executing async function for demonstration) ---
+(async () => {
+    console.log('--- UserDetailsServiceImpl Demonstration ---');
 
-    console.log('--- Testing Customer Login ---');
+    // Test Case 1: Successfully find a Staff user
     try {
-        const customerDetails = await userDetailsService.loadUserByUsername('customer@example.com');
-        console.log('Customer Details:', customerDetails);
-        // In a real auth flow, you'd then compare the provided password with customerDetails.password
-        // using bcrypt.compare(providedPassword, customerDetails.password)
+        console.log('\nAttempting to load staff user "admin"...');
+        const staffUserDetails = await userDetailsService.loadUserByUsername('admin');
+        console.log('✅ Found Staff User:', JSON.stringify(staffUserDetails, null, 2));
+        // Verify password (in a real authentication system, this would be handled by the auth provider)
+        const isStaffPasswordValid = await passwordEncoder.compare('adminpass', staffUserDetails.password);
+        console.log('   Staff password valid:', isStaffPasswordValid); // Should be true
     } catch (error) {
-        console.error('Customer Login Error:', error.message);
+        console.error('❌ Error finding staff user:', error.message);
     }
 
-    console.log('\n--- Testing Staff Login ---');
+    // Test Case 2: Successfully find a Customer user
     try {
-        const staffDetails = await userDetailsService.loadUserByUsername('admin_user');
-        console.log('Staff Details:', staffDetails);
-        // In a real auth flow, you'd then compare the provided password with staffDetails.password
-        // using bcrypt.compare(providedPassword, staffDetails.password)
+        console.log('\nAttempting to load customer user "customer1@example.com"...');
+        const customerUserDetails = await userDetailsService.loadUserByUsername('customer1@example.com');
+        console.log('✅ Found Customer User:', JSON.stringify(customerUserDetails, null, 2));
+        // Verify password (customer ID as password, as per original Java logic)
+        const isCustomerPasswordValid = await passwordEncoder.compare(String(101), customerUserDetails.password);
+        console.log('   Customer password valid (ID as pass):', isCustomerPasswordValid); // Should be true
     } catch (error) {
-        console.error('Staff Login Error:', error.message);
+        console.error('❌ Error finding customer user:', error.message);
     }
 
-    console.log('\n--- Testing User Not Found ---');
+    // Test Case 3: User not found (neither staff nor customer)
     try {
-        await userDetailsService.loadUserByUsername('nonexistent@example.com');
+        console.log('\nAttempting to load nonexistent user "unknown@example.com"...');
+        await userDetailsService.loadUserByUsername('unknown@example.com');
+        console.log('❌ Unexpected: User found for "unknown@example.com"');
     } catch (error) {
-        console.error('User Not Found Error:', error.message);
+        console.error(`✅ Expected Error (User not found): ${error.name} - ${error.message}`);
     }
 
-    console.log('\n--- Testing Empty Username ---');
+    // Test Case 4: Another Staff user
     try {
-        await userDetailsService.loadUserByUsername('');
+        console.log('\nAttempting to load staff user "staffuser"...');
+        const anotherStaffUserDetails = await userDetailsService.loadUserByUsername('staffuser');
+        console.log('✅ Found Staff User:', JSON.stringify(anotherStaffUserDetails, null, 2));
+        const isAnotherStaffPasswordValid = await passwordEncoder.compare('staffpass', anotherStaffUserDetails.password);
+        console.log('   Staff password valid:', isAnotherStaffPasswordValid); // Should be true
     } catch (error) {
-        console.error('Empty Username Error:', error.message);
+        console.error('❌ Error finding staff user:', error.message);
     }
-}
 
-// Uncomment to run the example
-// runExample();
-*/
+    // Test Case 5: Another Customer user
+    try {
+        console.log('\nAttempting to load customer user "customer2@example.com"...');
+        const anotherCustomerUserDetails = await userDetailsService.loadUserByUsername('customer2@example.com');
+        console.log('✅ Found Customer User:', JSON.stringify(anotherCustomerUserDetails, null, 2));
+        const isAnotherCustomerPasswordValid = await passwordEncoder.compare(String(102), anotherCustomerUserDetails.password);
+        console.log('   Customer password valid (ID as pass):', isAnotherCustomerPasswordValid); // Should be true
+    } catch (error) {
+        console.error('❌ Error finding customer user:', error.message);
+    }
+
+    // Test Case 6: Invalid dependencies during service instantiation
+    try {
+        console.log('\nAttempting to instantiate service with missing dependencies...');
+        new UserDetailsServiceImpl(null, staffRepository, passwordEncoder);
+        console.log('❌ Unexpected: Service instantiated with missing dependencies.');
+    } catch (error) {
+        console.error(`✅ Expected Error (Invalid dependencies): ${error.message}`);
+    }
+
+    console.log('\n--- Demonstration Complete ---');
+})();
+
+
+// Export the service and related classes for use in other modules.
+module.exports = {
+    UserDetailsServiceImpl,
+    UsernameNotFoundException,
+    // Exporting mock repositories and passwordEncoder for potential testing or further demonstration.
+    CustomerRepository,
+    StaffRepository,
+    passwordEncoder
+};
 ```

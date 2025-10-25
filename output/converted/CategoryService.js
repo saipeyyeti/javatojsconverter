@@ -1,143 +1,127 @@
 ```javascript
-// category.service.js
+/**
+ * @file CategoryService
+ * @module services/CategoryService
+ * @description Provides business logic and orchestration for Category entities.
+ * This service acts as an intermediary between the presentation/controller layer
+ * and the data access layer (`CategoryRepository`).
+ */
 
 /**
+ * Represents a Category entity.
  * @typedef {object} Category
- * @property {number} categoryId - The unique identifier for the category.
+ * @property {number} category_id - The unique identifier for the category.
  * @property {string} name - The name of the category.
- * @property {Date} lastUpdate - The timestamp of the last update.
- * // Add any other properties of the Category entity as defined in your Java Category class.
+ * @property {Date} last_update - The timestamp of the last update.
  */
 
 /**
- * Represents a base error specifically from the CategoryService.
- * This class extends the native Error object and adds a statusCode property.
- * @extends Error
+ * @interface ICategoryRepository
+ * @description Defines the expected interface for a Category data access repository.
+ * This interface ensures that any injected repository provides the necessary methods
+ * for Category data operations.
  */
-class CategoryServiceError extends Error {
-  /**
-   * Creates an instance of CategoryServiceError.
-   * @param {string} message - The error message.
-   * @param {number} [statusCode=500] - The HTTP status code associated with the error.
-   *   Defaults to 500 (Internal Server Error) if not specified.
-   */
-  constructor(message, statusCode = 500) {
-    super(message);
-    this.name = 'CategoryServiceError';
-    this.statusCode = statusCode;
-    // Capturing the stack trace helps with debugging
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, CategoryServiceError);
-    }
-  }
-}
+/**
+ * @function ICategoryRepository#findAll
+ * @returns {Promise<Array<Category>>} A promise that resolves to a list of Category objects.
+ */
+/**
+ * @function ICategoryRepository#getCategoryByCategoryId
+ * @param {number} id - The unique identifier of the category.
+ * @returns {Promise<Category|null>} A promise that resolves to the Category object if found, otherwise null.
+ */
 
 /**
- * Represents an error when a requested category is not found.
- * This error typically corresponds to an HTTP 404 Not Found status.
- * @extends CategoryServiceError
- */
-class CategoryNotFoundError extends CategoryServiceError {
-  /**
-   * Creates an instance of CategoryNotFoundError.
-   * @param {string} message - The error message.
-   */
-  constructor(message) {
-    super(message, 404);
-    this.name = 'CategoryNotFoundError';
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, CategoryNotFoundError);
-    }
-  }
-}
-
-/**
- * CategoryService handles business logic related to Category entities.
- * It acts as an intermediary layer between higher-level components (e.g., controllers)
- * and the data access layer (CategoryRepository). This service encapsulates
- * business rules, validation, and orchestrates data retrieval operations.
+ * `CategoryService` is a typical example of a Node.js service layer component
+ * designed to handle business logic related to `Category` entities.
+ *
+ * It encapsulates business rules, validations, and orchestrates data access
+ * operations through the `CategoryRepository`.
+ *
+ * @class
  */
 class CategoryService {
-  /**
-   * Creates an instance of CategoryService.
-   * This constructor uses Dependency Injection to receive a CategoryRepository instance.
-   * @param {object} categoryRepository - An instance of a repository class
-   *   that provides methods for interacting with Category data. It is expected
-   *   to have asynchronous methods like `findAll()` and `findById(id)`.
-   * @throws {CategoryServiceError} If the categoryRepository dependency is missing.
-   */
-  constructor(categoryRepository) {
-    if (!categoryRepository) {
-      throw new CategoryServiceError('CategoryRepository dependency is missing. Cannot initialize CategoryService.', 500);
-    }
-    // Ensure the repository has expected methods for better robustness
-    if (typeof categoryRepository.findAll !== 'function' || typeof categoryRepository.findById !== 'function') {
-      console.warn('CategoryRepository might be missing expected methods (findAll, findById).');
-    }
-    this.categoryRepository = categoryRepository;
-  }
+    /**
+     * @private
+     * @type {ICategoryRepository}
+     * @description The injected CategoryRepository instance for data access.
+     *   Using a private class field (`#`) for encapsulation, similar to `private final` in Java.
+     */
+    #categoryRepository;
 
-  /**
-   * Retrieves a list of all Category entities from the database.
-   * This method delegates the data retrieval to the injected CategoryRepository.
-   * @returns {Promise<Category[]>} A promise that resolves to an array of Category objects.
-   * @throws {CategoryServiceError} If an underlying error occurs during data retrieval
-   *   (e.g., database connection issues, repository errors).
-   */
-  async getAllCategories() {
-    try {
-      const categories = await this.categoryRepository.findAll();
-      // In a real application, you might add business logic here,
-      // e.g., filtering, sorting, or transforming the data before returning.
-      return categories;
-    } catch (error) {
-      // Log the original error for debugging purposes
-      console.error(`[CategoryService] Error fetching all categories: ${error.message}`, error);
-      // Re-throw a service-specific error to abstract repository details
-      throw new CategoryServiceError('Failed to retrieve all categories due to an internal error.', 500);
-    }
-  }
-
-  /**
-   * Retrieves a single Category entity based on its unique categoryId.
-   * This method performs input validation and delegates to the CategoryRepository.
-   * @param {number} id - The unique identifier of the category to retrieve.
-   * @returns {Promise<Category>} A promise that resolves to a Category object.
-   * @throws {CategoryServiceError} If the provided ID is invalid (e.g., not a number).
-   * @throws {CategoryNotFoundError} If no category is found with the given ID.
-   * @throws {CategoryServiceError} If an underlying error occurs during data retrieval.
-   */
-  async getByCategoryId(id) {
-    // Input validation
-    if (id === null || id === undefined || typeof id !== 'number' || isNaN(id) || id <= 0) {
-      throw new CategoryServiceError('Invalid category ID provided. ID must be a positive number.', 400);
+    /**
+     * Creates an instance of `CategoryService`.
+     * This constructor is used for **Dependency Injection**.
+     * Spring's IoC container equivalent in Node.js would be a custom DI container
+     * or simply passing the dependency during instantiation.
+     *
+     * @param {ICategoryRepository} categoryRepository - The repository for Category data access.
+     *   It is expected to implement `findAll()` and `getCategoryByCategoryId(id)` methods.
+     * @throws {Error} If `categoryRepository` is not provided or does not implement required methods,
+     *   adhering to Node.js best practices for robust dependency handling.
+     */
+    constructor(categoryRepository) {
+        if (!categoryRepository) {
+            throw new Error('CategoryService: CategoryRepository is required. Please provide a valid repository instance.');
+        }
+        // Validate that the injected repository has the expected methods.
+        // This ensures the service can rely on its dependencies' contracts.
+        if (typeof categoryRepository.findAll !== 'function' || typeof categoryRepository.getCategoryByCategoryId !== 'function') {
+            throw new Error('CategoryService: Injected CategoryRepository must implement `findAll` and `getCategoryByCategoryId` methods.');
+        }
+        this.#categoryRepository = categoryRepository;
     }
 
-    try {
-      // Delegate to the repository to find the category by ID
-      const category = await this.categoryRepository.findById(id);
-
-      // If no category is found, throw a specific Not Found error
-      if (!category) {
-        throw new CategoryNotFoundError(`Category with ID ${id} not found.`);
-      }
-
-      // In a real application, you might add business logic here,
-      // e.g., checking user permissions for this specific category.
-      return category;
-    } catch (error) {
-      // Re-throw specific errors (like Not Found) without wrapping them
-      if (error instanceof CategoryNotFoundError) {
-        throw error;
-      }
-      // Log the original error for debugging purposes
-      console.error(`[CategoryService] Error fetching category with ID ${id}: ${error.message}`, error);
-      // Re-throw a generic service error for other issues
-      throw new CategoryServiceError(`Failed to retrieve category with ID ${id} due to an internal error.`, 500);
+    /**
+     * Retrieves all `Category` entities available in the data store.
+     * It delegates this operation directly to the `findAll()` method of the injected `CategoryRepository`.
+     *
+     * @returns {Promise<Array<Category>>} A promise that resolves to a list of `Category` objects.
+     * @throws {Error} If there is an issue retrieving categories from the repository.
+     *   Errors are caught, logged, and re-thrown as application-specific errors for better
+     *   error handling at higher layers.
+     */
+    async getAllCategories() {
+        try {
+            const categories = await this.#categoryRepository.findAll();
+            return categories;
+        } catch (error) {
+            // Log the original error for debugging purposes
+            console.error(`[CategoryService] Error in getAllCategories: ${error.message}`, error);
+            // Re-throw a more generic, application-level error to avoid exposing
+            // internal data access details to the client.
+            throw new Error('Failed to retrieve all categories due to a data access error.');
+        }
     }
-  }
+
+    /**
+     * Retrieves a single `Category` entity based on its unique identifier (`id`).
+     * It delegates this operation to the `getCategoryByCategoryId(id)` method of the `CategoryRepository`.
+     *
+     * @param {number} id - The unique identifier (primary key) of the category.
+     * @returns {Promise<Category|null>} A promise that resolves to the `Category` object if found, otherwise `null`.
+     * @throws {Error} If an invalid ID is provided or if there is an issue retrieving the category from the repository.
+     *   Includes input validation for the `id` parameter as a best practice.
+     */
+    async getByCategoryId(id) {
+        // Input validation: Ensure ID is a positive integer.
+        if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
+            throw new Error('Invalid category ID provided. ID must be a positive integer.');
+        }
+
+        try {
+            const category = await this.#categoryRepository.getCategoryByCategoryId(id);
+            return category;
+        } catch (error) {
+            // Log the original error for debugging purposes
+            console.error(`[CategoryService] Error in getByCategoryId for ID ${id}: ${error.message}`, error);
+            // Re-throw a more generic, application-level error.
+            throw new Error(`Failed to retrieve category with ID ${id} due to a data access error.`);
+        }
+    }
 }
 
-// Export the service and custom error classes for use in other modules
-export { CategoryService, CategoryServiceError, CategoryNotFoundError };
+// Export the service class for use in other modules (e.g., controllers).
+// Using ES Modules syntax (export default) is a common Node.js best practice for modern applications.
+export default CategoryService;
 ```

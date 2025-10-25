@@ -1,182 +1,202 @@
 ```javascript
 /**
  * @typedef {object} Inventory
- * @property {number} inventoryId - The unique identifier for the inventory item.
- * @property {number} filmId - The ID of the film associated with this inventory item.
- * @property {number} storeId - The ID of the store where this inventory item is located.
+ * @property {number} inventoryId - The unique ID of the inventory item.
+ * @property {number} filmId - The ID of the film associated with this inventory.
+ * @property {number} storeId - The ID of the store where this inventory is located.
  * @property {Date} lastUpdate - The timestamp of the last update to this inventory item.
  */
 
 /**
  * @interface InventoryRepository
- * @description Defines the contract for the data access layer for Inventory entities.
- * In a real Node.js application, this would typically be an ORM model (e.g., a Sequelize model,
- * a Mongoose model) or a custom Data Access Object (DAO) that interacts directly with the database.
- * The methods are expected to be asynchronous and return Promises.
+ * @description
+ * This interface defines the contract for the data access layer for Inventory entities.
+ * In a real application, this would be implemented by an ORM (e.g., Sequelize, TypeORM)
+ * or a direct database client. All methods are expected to be asynchronous and return Promises.
  */
 class InventoryRepository {
     /**
-     * Retrieves all inventory items from the data store.
+     * Retrieves all Inventory entities from the database.
      * @returns {Promise<Inventory[]>} A promise that resolves to an array of Inventory objects.
      */
     async findAll() {
-        throw new Error('InventoryRepository.findAll() must be implemented by a concrete repository.');
+        throw new Error('Method "findAll" not implemented in InventoryRepository.');
     }
 
     /**
-     * Retrieves a single inventory item by its unique identifier.
+     * Retrieves a single Inventory entity by its unique inventoryId.
      * @param {number} id - The unique identifier of the inventory item.
-     * @returns {Promise<Inventory|null>} A promise that resolves to an Inventory object or null if not found.
+     * @returns {Promise<Inventory | null>} A promise that resolves to an Inventory object if found, otherwise null.
      */
-    async findById(id) {
-        throw new Error('InventoryRepository.findById() must be implemented by a concrete repository.');
+    async getInventoriesByInventoryId(id) {
+        throw new Error('Method "getInventoriesByInventoryId" not implemented in InventoryRepository.');
     }
 
     /**
-     * Deletes an inventory item from the data store by its unique identifier.
+     * Deletes an Inventory entity from the database by its unique inventoryId.
+     * This method is expected to handle its own transactional context for the deletion.
      * @param {number} id - The unique identifier of the inventory item to delete.
-     * @returns {Promise<number>} A promise that resolves to the number of deleted items (e.g., 1 for success, 0 for not found).
+     * @returns {Promise<number>} A promise that resolves to the number of deleted records (0 or 1).
      */
-    async deleteById(id) {
-        throw new Error('InventoryRepository.deleteById() must be implemented by a concrete repository.');
+    async deleteInventoryByInventoryId(id) {
+        throw new Error('Method "deleteInventoryByInventoryId" not implemented in InventoryRepository.');
     }
 
     /**
-     * Retrieves the total count of inventory items in the data store.
-     * @returns {Promise<number>} A promise that resolves to the total count of Inventory objects.
+     * Retrieves the total count of Inventory entities in the database.
+     * @returns {Promise<number>} A promise that resolves to the total count of inventory items.
      */
-    async count() {
-        throw new Error('InventoryRepository.count() must be implemented by a concrete repository.');
+    async getInventoryCount() {
+        throw new Error('Method "getInventoryCount" not implemented in InventoryRepository.');
+    }
+}
+
+/**
+ * Custom error class for when an inventory item is not found.
+ * @extends Error
+ */
+class InventoryNotFoundError extends Error {
+    /**
+     * Creates an instance of InventoryNotFoundError.
+     * @param {number} id - The ID of the inventory item that was not found.
+     */
+    constructor(id) {
+        super(`Inventory item with ID ${id} not found.`);
+        this.name = 'InventoryNotFoundError';
+        this.statusCode = 404; // Common HTTP status for Not Found
     }
 }
 
 /**
  * @class InventoryService
- * @description A service layer component designed to encapsulate business logic
- * and orchestrate data access operations related to `Inventory` entities.
- * It acts as an intermediary between the presentation/controller layer and the data access layer.
+ * @description
+ * This service class encapsulates the business logic related to Inventory entities.
+ * It acts as an intermediary layer between higher-level components (e.g., REST controllers)
+ * and the data access layer (InventoryRepository), abstracting away the specifics of data persistence.
  *
- * This service provides methods for retrieving, deleting, and counting inventory items,
- * ensuring proper error handling and asynchronous execution using `async/await`.
+ * It leverages Dependency Injection for the InventoryRepository, promoting loose coupling and testability.
+ * All data operations are asynchronous, using `async/await` for cleaner code.
+ * Proper error handling is implemented, including a specific error for 'not found' scenarios.
  */
 class InventoryService {
     /**
+     * @private
+     * @type {InventoryRepository}
+     */
+    inventoryRepository;
+
+    /**
      * Creates an instance of InventoryService.
-     * This constructor uses Dependency Injection to receive an `InventoryRepository` instance,
-     * promoting loose coupling and testability.
-     *
-     * @param {InventoryRepository} inventoryRepository - The repository for Inventory data access.
-     *   This dependency is expected to be a concrete implementation of the `InventoryRepository` interface.
-     * @throws {Error} If `inventoryRepository` is not provided, indicating a misconfiguration.
+     * This constructor uses Dependency Injection to receive an instance of `InventoryRepository`.
+     * @param {InventoryRepository} inventoryRepository - The data access layer for Inventory entities.
+     *   This dependency is crucial for the service to interact with the database.
+     * @throws {Error} If `inventoryRepository` is not provided.
      */
     constructor(inventoryRepository) {
         if (!inventoryRepository) {
-            throw new Error('InventoryService: inventoryRepository must be provided.');
+            throw new Error('InventoryService: InventoryRepository must be provided.');
         }
-        /**
-         * @private
-         * @type {InventoryRepository}
-         */
         this.inventoryRepository = inventoryRepository;
     }
 
     /**
-     * Retrieves a list of all inventory items from the database.
-     * Delegates the data retrieval operation to the `inventoryRepository`.
-     *
-     * @returns {Promise<Inventory[]>} A promise that resolves to an array of all Inventory entities.
-     * @throws {Error} If there is an underlying issue with data retrieval (e.g., database error).
+     * Retrieves a list of all Inventory entities from the database.
+     * @async
+     * @returns {Promise<Inventory[]>} A promise that resolves to an array of Inventory objects.
+     * @throws {Error} If an error occurs during data retrieval from the repository.
      */
     async getAllInventory() {
         try {
-            const inventories = await this.inventoryRepository.findAll();
-            return inventories;
+            return await this.inventoryRepository.findAll();
         } catch (error) {
-            console.error(`[InventoryService] Error in getAllInventory: ${error.message}`);
-            // Re-throw a more generic error to avoid exposing internal database details
-            throw new Error('Failed to retrieve all inventory items due to a server error.');
+            console.error('InventoryService.getAllInventory: Failed to retrieve all inventory items.', error);
+            throw new Error('Failed to retrieve all inventory items due to a database error.');
         }
     }
 
     /**
-     * Retrieves a single inventory item based on its unique `inventoryId`.
-     * Delegates the data retrieval operation to the `inventoryRepository`.
-     *
+     * Retrieves a single Inventory entity based on its unique `inventoryId`.
+     * @async
      * @param {number} id - The unique identifier of the inventory item.
-     * @returns {Promise<Inventory|null>} A promise that resolves to the Inventory entity
-     *   or `null` if no item is found with the given ID.
-     * @throws {Error} If the provided `id` is invalid or if there's an issue retrieving the item.
+     * @returns {Promise<Inventory>} A promise that resolves to an Inventory object.
+     * @throws {Error} If the provided ID is invalid (not a positive number).
+     * @throws {InventoryNotFoundError} If no inventory item is found with the given ID.
+     * @throws {Error} If an unexpected error occurs during data retrieval from the repository.
      */
     async getInventoriesById(id) {
         if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
             throw new Error('Invalid inventory ID provided. ID must be a positive integer.');
         }
+
         try {
-            const inventory = await this.inventoryRepository.findById(id);
+            const inventory = await this.inventoryRepository.getInventoriesByInventoryId(id);
+            if (!inventory) {
+                throw new InventoryNotFoundError(id);
+            }
             return inventory;
         } catch (error) {
-            console.error(`[InventoryService] Error in getInventoriesById (ID: ${id}): ${error.message}`);
-            throw new Error(`Failed to retrieve inventory item with ID ${id} due to a server error.`);
+            if (error instanceof InventoryNotFoundError) {
+                throw error; // Re-throw specific not found error
+            }
+            console.error(`InventoryService.getInventoriesById: Failed to retrieve inventory item with ID ${id}.`, error);
+            throw new Error(`Failed to retrieve inventory item with ID ${id} due to a database error.`);
         }
     }
 
     /**
-     * Deletes an inventory item from the database identified by its `inventoryId`.
-     * This operation is typically handled transactionally by the underlying ORM or database
+     * Deletes an Inventory entity from the database identified by its `inventoryId`.
+     * This operation is expected to be handled transactionally by the underlying repository
      * to ensure data consistency.
-     *
+     * @async
      * @param {number} id - The unique identifier of the inventory item to delete.
-     * @returns {Promise<boolean>} A promise that resolves to `true` if the item was successfully deleted.
-     * @throws {Error} If the provided `id` is invalid, the item is not found, or a database error occurs.
+     * @returns {Promise<void>} A promise that resolves when the deletion is complete.
+     * @throws {Error} If the provided ID is invalid (not a positive number).
+     * @throws {InventoryNotFoundError} If no inventory item is found with the given ID to delete.
+     * @throws {Error} If an error occurs during the deletion process in the repository.
      */
     async deleteInventoryItemById(id) {
         if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) {
             throw new Error('Invalid inventory ID provided. ID must be a positive integer.');
         }
+
         try {
-            // In a real application using an ORM (e.g., Sequelize), explicit transaction management
-            // might be implemented here if multiple operations needed to be atomic:
-            // await this.inventoryRepository.sequelize.transaction(async (t) => {
-            //     const deletedCount = await this.inventoryRepository.destroy({ where: { inventoryId: id }, transaction: t });
-            //     if (deletedCount === 0) {
-            //         throw new Error(`Inventory item with ID ${id} not found for deletion.`);
-            //     }
-            // });
-            // For a generic repository, we assume `deleteById` handles atomicity or is part of a larger transaction context.
-            const deletedCount = await this.inventoryRepository.deleteById(id);
+            // Assuming the repository method returns the number of affected rows (0 or 1)
+            const deletedCount = await this.inventoryRepository.deleteInventoryByInventoryId(id);
             if (deletedCount === 0) {
-                // It's good practice to throw a specific error if the item wasn't found for deletion.
-                throw new Error(`Inventory item with ID ${id} not found for deletion.`);
+                throw new InventoryNotFoundError(id);
             }
-            return true; // Indicate successful deletion
+            // No explicit return value needed for void operations
         } catch (error) {
-            console.error(`[InventoryService] Error in deleteInventoryItemById (ID: ${id}): ${error.message}`);
-            // Re-throw the specific "not found" error if it originated from the repository,
-            // otherwise throw a generic server error.
-            if (error.message.includes('not found for deletion')) {
-                throw error;
+            if (error instanceof InventoryNotFoundError) {
+                throw error; // Re-throw specific not found error
             }
-            throw new Error(`Failed to delete inventory item with ID ${id} due to a server error.`);
+            console.error(`InventoryService.deleteInventoryItemById: Failed to delete inventory item with ID ${id}.`, error);
+            throw new Error(`Failed to delete inventory item with ID ${id} due to a database error.`);
         }
     }
 
     /**
-     * Retrieves the total number of inventory records currently stored in the database.
-     * Delegates the counting operation to the `inventoryRepository`.
-     *
-     * @returns {Promise<number>} A promise that resolves to the total count of Inventory entities.
-     * @throws {Error} If there is an underlying issue with data retrieval (e.g., database error).
+     * Retrieves the total number of Inventory entities currently stored in the database.
+     * @async
+     * @returns {Promise<number>} A promise that resolves to the total count of inventory items.
+     * @throws {Error} If an error occurs during the count retrieval from the repository.
      */
     async getInventoryCount() {
         try {
-            const count = await this.inventoryRepository.count();
-            return count;
+            return await this.inventoryRepository.getInventoryCount();
         } catch (error) {
-            console.error(`[InventoryService] Error in getInventoryCount: ${error.message}`);
-            throw new Error('Failed to retrieve inventory count due to a server error.');
+            console.error('InventoryService.getInventoryCount: Failed to retrieve inventory count.', error);
+            throw new Error('Failed to retrieve inventory count due to a database error.');
         }
     }
 }
 
-module.exports = InventoryService;
+// Export the service class and custom error for use in other modules
+module.exports = {
+    InventoryService,
+    InventoryNotFoundError,
+    // Optionally, export the InventoryRepository interface for type hinting/documentation
+    // if you want to make it explicit for consumers of the service.
+    // InventoryRepository
+};
 ```

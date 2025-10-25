@@ -2,6 +2,16 @@
   "llmProvider": "Gemini",
   "conversions": [
     {
+      "original": "MavenWrapperDownloader",
+      "type": "Util",
+      "outputPath": "./output/converted/MavenWrapperDownloader.js"
+    },
+    {
+      "original": "SakilaProjectApplication",
+      "type": "Util",
+      "outputPath": "./output/converted/SakilaProjectApplication.js"
+    },
+    {
       "original": "ActorController",
       "type": "Controller",
       "outputPath": "./output/converted/ActorController.js"
@@ -30,6 +40,71 @@
       "original": "StaffController",
       "type": "Controller",
       "outputPath": "./output/converted/StaffController.js"
+    },
+    {
+      "original": "Actor",
+      "type": "Model",
+      "outputPath": "./output/converted/Actor.js"
+    },
+    {
+      "original": "Category",
+      "type": "Model",
+      "outputPath": "./output/converted/Category.js"
+    },
+    {
+      "original": "Customer",
+      "type": "Model",
+      "outputPath": "./output/converted/Customer.js"
+    },
+    {
+      "original": "Film",
+      "type": "Model",
+      "outputPath": "./output/converted/Film.js"
+    },
+    {
+      "original": "FilmActor",
+      "type": "Model",
+      "outputPath": "./output/converted/FilmActor.js"
+    },
+    {
+      "original": "FilmActorPK",
+      "type": "Util",
+      "outputPath": "./output/converted/FilmActorPK.js"
+    },
+    {
+      "original": "FilmCategory",
+      "type": "Model",
+      "outputPath": "./output/converted/FilmCategory.js"
+    },
+    {
+      "original": "FilmCategoryPK",
+      "type": "Util",
+      "outputPath": "./output/converted/FilmCategoryPK.js"
+    },
+    {
+      "original": "FilmText",
+      "type": "Model",
+      "outputPath": "./output/converted/FilmText.js"
+    },
+    {
+      "original": "Inventory",
+      "type": "Model",
+      "outputPath": "./output/converted/Inventory.js"
+    },
+    {
+      "original": "Order",
+      "type": "Util",
+      "outputPath": "./output/converted/Order.js"
+    },
+    {
+      "original": "Rental",
+      "type": "Model",
+      "outputPath": "./output/converted/Rental.js"
+    },
+    {
+      "original": "Staff",
+      "type": "Model",
+      "outputPath": "./output/converted/Staff.js"
     },
     {
       "original": "ActorRepository",
@@ -67,9 +142,29 @@
       "outputPath": "./output/converted/StaffRepository.js"
     },
     {
+      "original": "FailureHandler",
+      "type": "Component",
+      "outputPath": "./output/converted/FailureHandler.js"
+    },
+    {
+      "original": "MvcConfig",
+      "type": "Configuration",
+      "outputPath": "./output/converted/MvcConfig.js"
+    },
+    {
+      "original": "SuccessHandler",
+      "type": "Component",
+      "outputPath": "./output/converted/SuccessHandler.js"
+    },
+    {
       "original": "UserDetailsServiceImpl",
       "type": "Service",
       "outputPath": "./output/converted/UserDetailsServiceImpl.js"
+    },
+    {
+      "original": "WebSecurityConfig",
+      "type": "Configuration",
+      "outputPath": "./output/converted/WebSecurityConfig.js"
     },
     {
       "original": "ActorService",
@@ -105,6 +200,11 @@
       "original": "StaffService",
       "type": "Service",
       "outputPath": "./output/converted/StaffService.js"
+    },
+    {
+      "original": "SakilaProjectApplicationTests",
+      "type": "Util",
+      "outputPath": "./output/converted/SakilaProjectApplicationTests.js"
     }
   ]
 }
