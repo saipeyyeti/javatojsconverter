@@ -639,7 +639,7 @@ def main():
                 java_code = f.read()
             
             # Perform the conversion
-            nodejs__code = converter.convert(java_code, module['type'])
+            nodejs_code = converter.convert(java_code, module['type'])
             
             # Save the converted Node.js code
             output_path = f"{output_dir}/converted/{module['name']}.js"
