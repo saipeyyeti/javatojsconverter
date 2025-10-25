@@ -537,10 +537,30 @@ Provide only the complete, production-ready Node.js code:"""
                 "framework": framework_map.get(module_type, "Node.js patterns")
             })
             
-            return nodejs_code
+            return self._cleanup_code(nodejs_code)
         except Exception as e:
             print(f"  ⚠️  Conversion error: {str(e)[:100]}")
             return f"// Conversion failed for {module_type}\n// Error: {str(e)}"
+
+    @staticmethod
+    def _cleanup_code(raw_code: str) -> str:
+        """
+        Cleans the raw LLM output to extract only the Node.js code block.
+
+        Args:
+            raw_code (str): The raw output from the LLM.
+
+        Returns:
+            A string containing just the cleaned code, or the original input if
+            no code block is found.
+        """
+        import re
+
+        # Regex to find a JS code block, handling optional "javascript" annotation
+        match = re.search(r"```(javascript)?(.*?)```", raw_code, re.DOTALL)
+
+        # Return the extracted code or the original string if no match is found
+        return match.group(2).strip() if match else raw_code
 
 
 # ============================================================================
@@ -573,7 +593,7 @@ def main():
     
     # Initialize the LLM
     try:
-        llm, provider = initialize_llm(temperature=0.3, max_tokens=4000)
+        llm, provider = initialize_llm(temperature=0.3, max_tokens=8000)
         print(f"🤖 LLM Provider: {provider}\n")
     except ValueError as e:
         print(f"❌ {e}")
@@ -622,7 +642,7 @@ def main():
     print("🔄 Converting selected files to Node.js...\n")
     
     # Re-initialize the LLM with settings optimized for conversion
-    converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=8000)
+    converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=16000)
     converter = CodeConverter(converter_llm, provider)
     
     # Convert all modules that have methods
