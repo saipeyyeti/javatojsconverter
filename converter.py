@@ -578,6 +578,7 @@ def main():
     parser = argparse.ArgumentParser(description="Java to Node.js Codebase Analyzer and Converter")
     parser.add_argument("--codebase_path", help="Path to the Java codebase to be analyzed.")
     parser.add_argument("--output_dir", default="./output", help="Directory to save the output files.")
+    parser.add_argument("--stage", choices=['analyze', 'convert'], help="Run a specific stage")
     args = parser.parse_args()
 
     # Determine the codebase path, prioritizing the command-line argument
@@ -601,80 +602,95 @@ def main():
         print(f"❌ {e}")
         return
     
-    # Step 1: Scan the codebase for Java files
-    scanner = CodebaseScanner()
-    java_files = scanner.scan(codebase_path)
-    
-    if not java_files:
-        print(f"❌ No Java files found in {codebase_path}")
-        return
-    
-    # Step 2: Analyze the Java files
-    print("🧠 Analyzing Java files with LangChain...\n")
-    analyzer = JavaAnalyzer(llm, provider)
-    modules = []
-    
-    for i, file_info in enumerate(java_files, 1):
-        print(f"  [{i}/{len(java_files)}] Analyzing {file_info['name']}...")
-        module = analyzer.analyze_file(file_info)
-        modules.append(module)
-    
-    # Step 3: Generate a high-level project overview
-    print("\n📊 Generating project overview...")
-    project_overview = analyzer.generate_overview(modules)
-    
-    # Step 4: Save the structured analysis to a JSON file
-    structured_output = {
-        "projectOverview": project_overview,
-        "modules": modules,
-        "metadata": {
-            "llmProvider": provider,
-            "totalFiles": len(java_files),
-            "totalModules": len(modules)
+    if not args.stage or args.stage == 'analyze':
+        # Step 1: Scan the codebase for Java files
+        scanner = CodebaseScanner()
+        java_files = scanner.scan(codebase_path)
+
+        if not java_files:
+            print(f"❌ No Java files found in {codebase_path}")
+            return
+
+        # Step 2: Analyze the Java files
+        print("🧠 Analyzing Java files with LangChain...\n")
+        analyzer = JavaAnalyzer(llm, provider)
+        modules = []
+
+        for i, file_info in enumerate(java_files, 1):
+            print(f"  [{i}/{len(java_files)}] Analyzing {file_info['name']}...")
+            module = analyzer.analyze_file(file_info)
+            modules.append(module)
+
+        # Step 3: Generate a high-level project overview
+        print("\n📊 Generating project overview...")
+        project_overview = analyzer.generate_overview(modules)
+
+        # Step 4: Save the structured analysis to a JSON file
+        structured_output = {
+            "projectOverview": project_overview,
+            "modules": modules,
+            "metadata": {
+                "llmProvider": provider,
+                "totalFiles": len(java_files),
+                "totalModules": len(modules)
+            }
         }
-    }
-    
-    output_file = f"{output_dir}/analysis.json"
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(structured_output, f, indent=2)
-    
-    print(f"✅ Saved structured analysis to: {output_file}\n")
-    
-    # Step 5: Convert selected files to Node.js
-    print("🔄 Converting selected files to Node.js...\n")
-    
-    # Re-initialize the LLM with settings optimized for conversion
-    converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=32000)
-    converter = CodeConverter(converter_llm, provider)
-    
-    # Convert all modules that have methods
-    modules_to_convert = modules
 
-    converted_files = []
+        output_file = f"{output_dir}/analysis.json"
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(structured_output, f, indent=2)
 
-    for module in modules_to_convert:
-        if module and module['methods']:  # Only convert files with methods
-            print(f"  Converting {module['name']} ({module['type']})...")
-            
-            # Read the original Java file content
-            with open(module['filePath'], 'r', encoding='utf-8') as f:
-                java_code = f.read()
-            
-            # Perform the conversion
-            nodejs_code = converter.convert(java_code, module['type'])
-            
-            # Save the converted Node.js code
-            output_path = f"{output_dir}/converted/{module['name']}.js"
-            with open(output_path, 'w', encoding='utf-8') as f:
-                f.write(nodejs_code)
-            
-            converted_files.append({
-                "original": module['name'],
-                "type": module['type'],
-                "outputPath": output_path
-            })
-            
-            print(f"  ✅ Saved to: {output_path}\n")
+        print(f"✅ Saved structured analysis to: {output_file}\n")
+
+    if not args.stage or args.stage == 'convert':
+        # Step 5: Convert selected files to Node.js
+        print("🔄 Converting selected files to Node.js...\n")
+
+        # Load analysis if it exists
+        analysis_file = f"{output_dir}/analysis.json"
+        if not os.path.exists(analysis_file):
+            print(f"❌ Analysis file not found: {analysis_file}")
+            print("   Please run the 'analyze' stage first.")
+            return
+
+        with open(analysis_file, 'r', encoding='utf-8') as f:
+            analysis_data = json.load(f)
+        modules_to_convert = analysis_data.get('modules', [])
+
+        # Re-initialize the LLM with settings optimized for conversion
+        converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=32000)
+        converter = CodeConverter(converter_llm, provider)
+
+        converted_files = []
+
+        for module in modules_to_convert:
+            if module and module.get('methods'):  # Only convert files with methods
+                print(f"  Converting {module['name']} ({module['type']})...")
+
+                try:
+                    # Read the original Java file content
+                    with open(module['filePath'], 'r', encoding='utf-8') as f:
+                        java_code = f.read()
+
+                    # Perform the conversion
+                    nodejs_code = converter.convert(java_code, module['type'])
+
+                    # Save the converted Node.js code
+                    output_path = f"{output_dir}/converted/{module['name']}.js"
+                    with open(output_path, 'w', encoding='utf-8') as f:
+                        f.write(nodejs_code)
+
+                    converted_files.append({
+                        "original": module['name'],
+                        "type": module['type'],
+                        "outputPath": output_path
+                    })
+
+                    print(f"  ✅ Saved to: {output_path}\n")
+                except FileNotFoundError:
+                    print(f"  ⚠️  Could not find file: {module['filePath']}")
+                except Exception as e:
+                    print(f"  ⚠️  An unexpected error occurred for {module['name']}: {e}")
     
     # Save a summary of the conversions
     with open(f"{output_dir}/conversions.json", 'w') as f:
