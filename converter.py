@@ -483,14 +483,12 @@ Convert this Java {module_type} to Node.js/JavaScript:
 {java_code}
 
 Requirements:
-- Use {framework} framework to ensure proper separation of concerns.
-- Implement equivalent routing and logic from the original Java code.
-- For database access, use appropriate Node.js libraries like Sequelize or Mongoose.
-- Maintain all original functionality.
-- Use async/await for all asynchronous operations.
-- Include comprehensive JSDoc comments for all methods and classes.
-- Implement proper error handling mechanisms.
-- Follow modern Node.js best practices.
+- Use {framework} framework
+- Maintain all functionality
+- Use async/await for asynchronous operations
+- Include comprehensive JSDoc comments
+- Add proper error handling
+- Follow Node.js best practices
 
 Provide only the complete, production-ready Node.js code:"""
 
@@ -520,15 +518,15 @@ Provide only the complete, production-ready Node.js code:"""
         
         # A mapping of Java module types to their Node.js framework equivalents
         framework_map = {
-            'Controller': 'NestJS controller (modules, decorators; use @Controller and routing decorators)',
-            'Service': 'NestJS provider (@Injectable ES6 class, register in a module)',
-            'DAO': 'TypeORM Repository for database access with NestJS',
-            'Model': 'TypeORM Entity class for data structure',
-            'DTO': 'Class-based DTO for data transfer with validation decorators',
-            'Configuration': 'NestJS module configuration (e.g., using @Module with providers and exports)',
-            'Exception': 'Custom NestJS HttpException or a custom Error class',
-            'Component': 'NestJS provider (@Injectable) or a NestJS module',
-            'Util': 'Collection of standalone utility functions'
+            'Controller': 'Express.js with routing and middleware',
+            'Service': 'ES6 class with business logic',
+            'DAO': 'Sequelize ORM for database access',
+            'Model': 'ES6 class for data structure',
+            'DTO': 'Plain JavaScript object for data transfer',
+            'Configuration': 'Module exporting configuration objects',
+            'Exception': 'Custom Error class',
+            'Component': 'ES6 module or class',
+            'Util': 'Collection of utility functions'
         }
         
         try:
