@@ -41,68 +41,101 @@ if InMemoryCache:
 # LLM INITIALIZATION
 # ============================================================================
 
-def initialize_llm(temperature: float = 0.3, max_tokens: int = 4000):
+def initialize_llm(provider: str = None, temperature: float = 0.3, max_tokens: int = 4000):
     """
-    Initialize the Large Language Model (LLM) with a preference for Google Gemini,
-    falling back to Anthropic's Claude if Gemini is not available.
+    Initialize the Large Language Model (LLM).
+
+    If a provider is specified, it will be used. Otherwise, it will try to initialize
+    providers in the order: Google Gemini, Anthropic Claude, OpenAI GPT.
 
     Args:
-        temperature (float): Controls the randomness of the LLM's output.
+        provider (str, optional): 'google', 'anthropic', or 'openai'.
+        temperature (float): The temperature for the LLM.
         max_tokens (int): The maximum number of tokens to generate.
 
     Returns:
-        A tuple containing the LLM instance and the provider's name (e.g., "Gemini").
+        A tuple of (llm_instance, provider_name).
 
     Raises:
-        ValueError: If no valid API key is found for either Gemini or Claude.
+        ValueError: If no provider can be initialized.
     """
-    gemini_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
-    anthropic_key = os.getenv('ANTHROPIC_API_KEY')
     
-    # Attempt to initialize Google Gemini first
-    if gemini_key:
-        try:
+    # Define provider initialization functions
+    def init_gemini():
+        gemini_key = os.getenv('GOOGLE_API_KEY') or os.getenv('GEMINI_API_KEY')
+        if gemini_key:
             from langchain_google_genai import ChatGoogleGenerativeAI
             print("✅ Using Google Gemini")
-            llm = ChatGoogleGenerativeAI(
+            return ChatGoogleGenerativeAI(
                 model="gemini-2.5-flash",
                 google_api_key=gemini_key,
                 temperature=temperature,
                 max_tokens=max_tokens,
-            )
-            return llm, "Gemini"
-        except ImportError:
-            print("⚠️  langchain-google-genai not installed. Install with: pip install langchain-google-genai")
-            print("   Falling back to Anthropic...")
-        except Exception as e:
-            print(f"⚠️  Gemini initialization failed: {e}")
-            print("   Falling back to Anthropic...")
-    
-    # Fallback to Anthropic Claude if Gemini is unavailable
-    if anthropic_key:
-        try:
+            ), "Gemini"
+        return None, None
+
+    def init_anthropic():
+        anthropic_key = os.getenv('ANTHROPIC_API_KEY')
+        if anthropic_key:
             from langchain_anthropic import ChatAnthropic
             print("✅ Using Anthropic Claude")
-            llm = ChatAnthropic(
+            return ChatAnthropic(
                 anthropic_api_key=anthropic_key,
                 model="claude-3-sonnet-20240229",
                 temperature=temperature,
                 max_tokens_to_sample=max_tokens,
                 max_retries=3
-            )
-            return llm, "Anthropic"
-        except ImportError:
-            print("❌ langchain-anthropic not installed. Install with: pip install langchain-anthropic")
+            ), "Anthropic"
+        return None, None
+
+    def init_openai():
+        openai_key = os.getenv('OPENAI_API_KEY')
+        if openai_key:
+            from langchain_openai import ChatOpenAI
+            print("✅ Using OpenAI GPT")
+            return ChatOpenAI(
+                openai_api_key=openai_key,
+                model="gpt-5-codex",
+                temperature=temperature,
+                max_tokens=max_tokens,
+            ), "OpenAI"
+        return None, None
+
+    # If a provider is specified, try to initialize it
+    if provider:
+        try:
+            if provider == 'google':
+                llm, name = init_gemini()
+            elif provider == 'anthropic':
+                llm, name = init_anthropic()
+            elif provider == 'openai':
+                llm, name = init_openai()
+            else:
+                raise ValueError(f"Unsupported provider: {provider}")
+
+            if llm:
+                return llm, name
+            else:
+                raise ValueError(f"API key for specified provider '{provider}' not found.")
+        except ImportError as e:
+            raise ValueError(f"Missing dependency for {provider}: {e}")
         except Exception as e:
-            print(f"❌ Anthropic initialization failed: {e}")
-    
-    # If no LLM can be initialized, raise an error
+            raise ValueError(f"Initialization failed for {provider}: {e}")
+
+    # If no provider is specified, try them in order
+    llm, name = init_gemini()
+    if llm: return llm, name
+
+    llm, name = init_anthropic()
+    if llm: return llm, name
+
+    llm, name = init_openai()
+    if llm: return llm, name
+
+    # If no provider could be initialized, raise an error
     raise ValueError(
-        "No valid API key found!\n"
-        "Please set either:\n"
-        "  - GOOGLE_API_KEY or GEMINI_API_KEY for Google Gemini\n"
-        "  - ANTHROPIC_API_KEY for Anthropic Claude\n"
-        "in your .env file or environment variables"
+        "No valid API key found for any provider!\n"
+        "Please set GOOGLE_API_KEY, ANTHROPIC_API_KEY, or OPENAI_API_KEY."
     )
 
 
@@ -577,6 +610,7 @@ def main():
     parser.add_argument("--codebase_path", help="Path to the Java codebase to be analyzed.")
     parser.add_argument("--output_dir", default="./output", help="Directory to save the output files.")
     parser.add_argument("--stage", choices=['analyze', 'convert'], help="Run a specific stage")
+    parser.add_argument("--provider", choices=['google', 'anthropic', 'openai'], help="Force a specific LLM provider")
     args = parser.parse_args()
 
     # Determine the codebase path, prioritizing the command-line argument
@@ -594,7 +628,7 @@ def main():
     
     # Initialize the LLM
     try:
-        llm, provider = initialize_llm(temperature=0.3, max_tokens=8000)
+        llm, provider = initialize_llm(provider=args.provider, temperature=0.3, max_tokens=8000)
         print(f"🤖 LLM Provider: {provider}\n")
     except ValueError as e:
         print(f"❌ {e}")
@@ -656,7 +690,7 @@ def main():
         modules_to_convert = analysis_data.get('modules', [])
 
         # Re-initialize the LLM with settings optimized for conversion
-        converter_llm, _ = initialize_llm(temperature=0.2, max_tokens=32000)
+        converter_llm, _ = initialize_llm(provider=args.provider, temperature=0.2, max_tokens=32000)
         converter = CodeConverter(converter_llm, provider)
 
         converted_files = []
