@@ -67,7 +67,7 @@ def initialize_llm(provider: str = None, temperature: float = 0.3, max_tokens: i
             from langchain_google_genai import ChatGoogleGenerativeAI
             print("✅ Using Google Gemini")
             return ChatGoogleGenerativeAI(
-                model="gemini-1.5-flash",
+                model="gemini-2.5-flash",
                 google_api_key=gemini_key,
                 temperature=temperature,
                 max_tokens=max_tokens,
@@ -95,7 +95,7 @@ def initialize_llm(provider: str = None, temperature: float = 0.3, max_tokens: i
             print("✅ Using OpenAI GPT")
             return ChatOpenAI(
                 openai_api_key=openai_key,
-                model="gpt-4-turbo",
+                model="gpt-5-codex",
                 temperature=temperature,
                 max_tokens=max_tokens,
             ), "OpenAI"
