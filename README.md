@@ -18,7 +18,7 @@ The script performs the following steps:
 
 ### Prerequisites
 *   Python 3.7+
-*   An API key for either Google Gemini or Anthropic Claude.
+*   An API key for Google Gemini, Anthropic Claude, or OpenAI.
 
 ### Setup
 1.  **Install Dependencies**:
@@ -34,15 +34,18 @@ The script performs the following steps:
     # Your API Key for Google Gemini
     GOOGLE_API_KEY="YOUR_GOOGLE_API_KEY"
 
-    # Fallback API key for Anthropic Claude
+    # Your API Key for Anthropic Claude
     # ANTHROPIC_API_KEY="YOUR_ANTHROPIC_API_KEY"
+
+    # Your API Key for OpenAI
+    # OPENAI_API_KEY="YOUR_OPENAI_API_KEY"
 
     # Path to the Java codebase (optional, defaults to ./java-dir)
     CODEBASE_PATH="./java-dir"
     ```
 
 ### Execution
-You can run the script from your terminal in two ways:
+You can run the script from your terminal. By default, it will try to initialize Google Gemini, then Anthropic Claude, then OpenAI.
 
 **1. Default Mode**
 This will use the `CODEBASE_PATH` from your `.env` file or default to `./java-dir`.
@@ -55,9 +58,10 @@ You can override the default settings using command-line arguments.
 
 *   `--codebase_path`: Specifies the path to the Java codebase.
 *   `--output_dir`: Sets the directory where the output files will be saved.
+*   `--provider`: Force a specific LLM provider. Choices: `google`, `anthropic`, `openai`.
 
 ```bash
-python converter.py --codebase_path /path/to/your/java/project --output_dir ./custom_output
+python converter.py --codebase_path /path/to/your/java/project --output_dir ./custom_output --provider openai
 ```
 
 The script will print its progress to the console and create the output directory with the results.
